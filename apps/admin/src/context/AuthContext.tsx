@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { FirebaseError } from 'firebase/app';
 import { signInWithPopup, signOut } from 'firebase/auth';
 import { getFirebaseAuth, googleProvider, isFirebaseConfigured } from '@/lib/firebase';
 import { api, setAccessToken } from '@/lib/api-client';
@@ -68,8 +69,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setAccessToken(data.accessToken);
       localStorage.setItem(REFRESH_TOKEN_KEY, data.refreshToken);
       setUser({ userId: data.userId, role: data.role as AuthUser['role'] });
-    } catch {
-      setError('Google sign-in failed or was cancelled.');
+    } catch (err) {
+      if (err instanceof FirebaseError && err.code === 'auth/popup-closed-by-user') {
+        // User closed the popup themselves - not a real error, no message needed.
+        return;
+      }
+      const detail = err instanceof FirebaseError ? `${err.code}` : 'unknown error';
+      setError(`Google sign-in failed (${detail}). See browser console for detail.`);
+      console.error('Google sign-in failed:', err);
     }
   }
 
