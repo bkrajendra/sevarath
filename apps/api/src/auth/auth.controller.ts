@@ -1,4 +1,4 @@
-import { Body, Controller, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, HttpCode, HttpStatus, Post, Req, UseGuards } from '@nestjs/common';
 import { ApiBody, ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 import type * as admin from 'firebase-admin';
@@ -18,6 +18,7 @@ export class AuthController {
    * Sign-In - see architecture.md §9.4) for this app's own access/refresh JWT pair.
    */
   @Post('login')
+  @HttpCode(HttpStatus.OK)
   @UseGuards(FirebaseAuthGuard)
   @ApiBody({ type: LoginDto })
   @ApiOkResponse({ type: TokenResponseDto })
@@ -27,6 +28,7 @@ export class AuthController {
   }
 
   @Post('refresh')
+  @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: TokenResponseDto })
   async refresh(@Body() dto: RefreshDto): Promise<TokenResponseDto> {
     return this.authService.refresh(dto.refreshToken);
