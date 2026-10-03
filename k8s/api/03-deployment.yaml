@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sevarath-api
+  namespace: sevarath
+  labels:
+    app: sevarath-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sevarath-api
+  template:
+    metadata:
+      labels:
+        app: sevarath-api
+    spec:
+      containers:
+      - name: sevarath-api
+        image: ghcr.io/bkrajendra/sevarath-api:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 3000
+          name: http
+          protocol: TCP
+        envFrom:
+        - secretRef:
+            name: sevarath-api-env
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: TZ
+          value: "Asia/Kolkata"
+        - name: PORT
+          value: "3000"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "150m"
+          limits:
+            memory: "768Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health/live
+            port: 3000
+          initialDelaySeconds: 20
+          periodSeconds: 30
+          timeoutSeconds: 3
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 3

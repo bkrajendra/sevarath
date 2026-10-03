@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sevarath-postgres
+  namespace: sevarath
+  labels:
+    app: sevarath-postgres
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: sevarath-postgres
+  template:
+    metadata:
+      labels:
+        app: sevarath-postgres
+    spec:
+      # hostPath-backed PV: the postgres data directory needs to be owned by
+      # the postgres image's uid (999) before the main container can write to it.
+      initContainers:
+      - name: fix-permissions
+        image: busybox:1.36
+        command: ['sh', '-c', 'mkdir -p /var/lib/postgresql/data && chown -R 999:999 /var/lib/postgresql/data']
+        securityContext:
+          runAsUser: 0
+        volumeMounts:
+        - name: storage-volume
+          mountPath: /var/lib/postgresql/data
+          subPath: postgres
+      containers:
+      - name: postgres
+        # PostGIS-enabled image (see docs/architecture.md §5) - plain postgres:16 is not
+        # enough, the campus_roads/campus_restricted_zones geometry columns need it.
+        image: postgis/postgis:16-3.4
+        ports:
+        - containerPort: 5432
+          name: postgres
+          protocol: TCP
+        envFrom:
+        - secretRef:
+            name: sevarath-postgres-env
+        env:
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        volumeMounts:
+        - name: storage-volume
+          mountPath: /var/lib/postgresql/data
+          subPath: postgres
+        resources:
+          requests:
+            memory: '256Mi'
+            cpu: '150m'
+          limits:
+            memory: '768Mi'
+            cpu: '500m'
+        readinessProbe:
+          tcpSocket:
+            port: 5432
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 3
+        livenessProbe:
+          tcpSocket:
+            port: 5432
+          initialDelaySeconds: 20
+          periodSeconds: 30
+          timeoutSeconds: 3
+          failureThreshold: 3
+      volumes:
+      - name: storage-volume
+        persistentVolumeClaim:
+          claimName: sevarath-pvc

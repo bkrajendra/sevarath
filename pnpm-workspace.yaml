@@ -1,0 +1,8 @@
+packages:
+  - 'apps/*'
+allowBuilds:
+  '@firebase/util': true
+  '@nestjs/core': true
+  core-js: true
+  esbuild: true
+  protobufjs: true

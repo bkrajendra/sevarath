@@ -1,0 +1,16 @@
+{
+  "name": "sevarath",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@11.24.0",
+  "scripts": {
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "api:dev": "pnpm --filter @sevarath/api dev",
+    "api:build": "pnpm --filter @sevarath/api build",
+    "api:db:generate": "pnpm --filter @sevarath/api db:generate",
+    "api:db:migrate": "pnpm --filter @sevarath/api db:migrate",
+    "admin:dev": "pnpm --filter @sevarath/admin dev",
+    "admin:build": "pnpm --filter @sevarath/admin build"
+  }
+}
