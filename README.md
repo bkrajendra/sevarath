@@ -22,7 +22,7 @@ There is **no payment, fare calculation, surge pricing, wallet, or commercial tr
 The system is intended for controlled internal use within the headquarters premises.
 
 ---
-
+![SevaRath - Brahma Kumaris Internal EV Booking System](docs/arch-d.png)
 # 2. Initial Product Scope
 
 The first fully working release should contain two mobile applications/interfaces:
