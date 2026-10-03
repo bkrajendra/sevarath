@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { eq, or } from 'drizzle-orm';
+import { eq, ilike, or } from 'drizzle-orm';
 import { DRIZZLE, DrizzleDb } from '../db/drizzle.module';
 import { users, type NewUser, type User } from '../db/schema';
 
@@ -21,7 +21,9 @@ export class UsersService {
     if (!mobile && !email) return undefined;
     const conditions = [];
     if (mobile) conditions.push(eq(users.mobile, mobile));
-    if (email) conditions.push(eq(users.email, email));
+    // Email match is case-insensitive - Firebase/Google may return different casing
+    // than however an admin originally typed it in when pre-provisioning the account.
+    if (email) conditions.push(ilike(users.email, email));
     const [user] = await this.db
       .select()
       .from(users)

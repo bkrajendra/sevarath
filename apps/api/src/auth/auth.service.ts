@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import type * as admin from 'firebase-admin';
@@ -9,6 +9,8 @@ import type { TokenResponseDto } from './dto/token-response.dto';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
@@ -38,6 +40,9 @@ export class AuthService {
     }
 
     if (!mobile) {
+      this.logger.warn(
+        `No user matched Firebase identity (uid=${decoded.uid}, email=${email ?? 'none'}, mobile=none) - rejecting login`,
+      );
       throw new UnauthorizedException(
         'No account found for this identity and no mobile number was provided to self-provision one',
       );
