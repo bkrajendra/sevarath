@@ -9,6 +9,26 @@ on:
 jobs:
   api:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: sevarath
+          POSTGRES_PASSWORD: sevarath
+          POSTGRES_DB: sevarath
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U sevarath"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://sevarath:sevarath@localhost:5432/sevarath
+      JWT_ACCESS_SECRET: ci-access-secret
+      JWT_ACCESS_TTL: 15m
+      JWT_REFRESH_SECRET: ci-refresh-secret
+      JWT_REFRESH_TTL: 30d
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -18,6 +38,8 @@ jobs:
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @sevarath/api build
+      - run: pnpm --filter @sevarath/api db:migrate
+      - run: pnpm --filter @sevarath/api test
 
   admin:
     runs-on: ubuntu-latest
@@ -30,3 +52,4 @@ jobs:
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @sevarath/admin build
+      - run: pnpm --filter @sevarath/admin test
