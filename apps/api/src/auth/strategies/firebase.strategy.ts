@@ -1,6 +1,7 @@
 import {
   Inject,
   Injectable,
+  Logger,
   ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -12,6 +13,8 @@ import { FIREBASE_ADMIN } from '../firebase/firebase-admin.provider';
 
 @Injectable()
 export class FirebaseStrategy extends PassportStrategy(Strategy, 'firebase') {
+  private readonly logger = new Logger(FirebaseStrategy.name);
+
   constructor(@Inject(FIREBASE_ADMIN) private readonly firebaseApp: admin.app.App | null) {
     super();
   }
@@ -30,7 +33,8 @@ export class FirebaseStrategy extends PassportStrategy(Strategy, 'firebase') {
 
     try {
       return await admin.auth(this.firebaseApp).verifyIdToken(idToken);
-    } catch {
+    } catch (err) {
+      this.logger.warn(`Firebase verifyIdToken failed: ${(err as Error).message}`);
       throw new UnauthorizedException('Invalid or expired Firebase ID token');
     }
   }
