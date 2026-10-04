@@ -4,7 +4,15 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useApproveDriver, useCreateDriver, useDrivers, useSuspendDriver } from '@/hooks/useDrivers';
+import { cn } from '@/lib/cn';
+import {
+  useApproveDriver,
+  useAssignVehicle,
+  useCreateDriver,
+  useDrivers,
+  useSuspendDriver,
+} from '@/hooks/useDrivers';
+import { useVehicles } from '@/hooks/useVehicles';
 
 const statusVariant = {
   PENDING: 'warning',
@@ -15,12 +23,17 @@ const statusVariant = {
 
 export function DriversPage() {
   const { data: drivers, isLoading } = useDrivers();
+  const { data: vehicles } = useVehicles();
   const createDriver = useCreateDriver();
   const approveDriver = useApproveDriver();
   const suspendDriver = useSuspendDriver();
+  const assignVehicle = useAssignVehicle();
 
   const [userId, setUserId] = useState('');
   const [driverCode, setDriverCode] = useState('');
+  const [selectedVehicle, setSelectedVehicle] = useState<Record<string, string>>({});
+
+  const vehicleCodeById = new Map(vehicles?.map((v) => [v.id, v.vehicleCode]));
 
   function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -86,22 +99,55 @@ export function DriversPage() {
                       <Badge variant={statusVariant[driver.status]}>{driver.status}</Badge>
                     </TableCell>
                     <TableCell>{driver.availability}</TableCell>
-                    <TableCell>{driver.currentVehicleId ?? '-'}</TableCell>
-                    <TableCell className="flex gap-2">
-                      {driver.status === 'PENDING' && (
-                        <Button size="sm" onClick={() => approveDriver.mutate(driver.id)}>
-                          Approve
-                        </Button>
-                      )}
-                      {driver.status === 'ACTIVE' && (
+                    <TableCell>
+                      {driver.currentVehicleId
+                        ? (vehicleCodeById.get(driver.currentVehicleId) ?? driver.currentVehicleId)
+                        : '-'}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap items-center gap-2">
+                        {driver.status === 'PENDING' && (
+                          <Button size="sm" onClick={() => approveDriver.mutate(driver.id)}>
+                            Approve
+                          </Button>
+                        )}
+                        {driver.status === 'ACTIVE' && (
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => suspendDriver.mutate(driver.id)}
+                          >
+                            Suspend
+                          </Button>
+                        )}
+                        <select
+                          className={cn(
+                            'h-8 rounded-md border border-slate-300 bg-white px-2 text-xs',
+                            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400',
+                          )}
+                          value={selectedVehicle[driver.id] ?? ''}
+                          onChange={(e) =>
+                            setSelectedVehicle((prev) => ({ ...prev, [driver.id]: e.target.value }))
+                          }
+                        >
+                          <option value="">Select vehicle…</option>
+                          {vehicles?.map((vehicle) => (
+                            <option key={vehicle.id} value={vehicle.id}>
+                              {vehicle.vehicleCode}
+                            </option>
+                          ))}
+                        </select>
                         <Button
                           size="sm"
-                          variant="destructive"
-                          onClick={() => suspendDriver.mutate(driver.id)}
+                          variant="outline"
+                          disabled={!selectedVehicle[driver.id] || assignVehicle.isPending}
+                          onClick={() =>
+                            assignVehicle.mutate({ id: driver.id, vehicleId: selectedVehicle[driver.id] })
+                          }
                         >
-                          Suspend
+                          Assign
                         </Button>
-                      )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
