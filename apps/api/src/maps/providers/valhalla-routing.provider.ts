@@ -30,7 +30,10 @@ export class ValhallaRoutingProvider implements RoutingProvider {
       costing: 'auto',
       units: 'kilometers',
       language: options?.language ?? 'en-US',
-      directions_type: 'maneuvers',
+      // 'instructions' (Valhalla's default) includes narrative text; 'maneuvers'
+      // - despite the name - returns maneuver data WITHOUT instruction strings.
+      // Caught via a live test: every instruction came back empty with 'maneuvers'.
+      directions_type: 'instructions',
       ...(options?.excludePolygons ? { exclude_polygons: options.excludePolygons } : {}),
     };
 
