@@ -53,3 +53,18 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @sevarath/admin build
       - run: pnpm --filter @sevarath/admin test
+
+  mobile:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.6'
+          channel: stable
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test
