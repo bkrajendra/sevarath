@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
+
 import '../../core/theme/app_colors.dart';
 
 /// Shared map surface for ride screens (Confirm Ride, Driver En Route, On The
@@ -33,6 +34,17 @@ class _CampusMapPreviewState extends State<CampusMapPreview> {
   Future<void> _onStyleLoaded() async {
     final controller = _controller;
     if (controller == null) return;
+
+    // Web only, no-op elsewhere: when this widget mounts mid route-push
+    // transition (e.g. pushed straight from the previous screen, as Confirm
+    // Ride is), maplibre_gl's container ResizeObserver can catch the map's
+    // transient in-transition size and never recheck once the transition
+    // settles, leaving the canvas stuck tiny. Force a resize now and again
+    // once the push transition (~300ms) has finished.
+    controller.forceResizeWebMap();
+    Future.delayed(const Duration(milliseconds: 350), () {
+      if (mounted) _controller?.forceResizeWebMap();
+    });
 
     if (widget.pickup != null && widget.destination != null) {
       await controller.addLine(
@@ -98,7 +110,10 @@ class _CampusMapPreviewState extends State<CampusMapPreview> {
               'campus-map-${constraints.maxWidth.round()}x${constraints.maxHeight.round()}',
             ),
             styleString: MapLibreStyles.openfreemapLiberty,
-            initialCameraPosition: CameraPosition(target: widget.center, zoom: widget.zoom),
+            initialCameraPosition: CameraPosition(
+              target: widget.center,
+              zoom: widget.zoom,
+            ),
             myLocationEnabled: false,
             compassEnabled: false,
             attributionButtonPosition: AttributionButtonPosition.bottomLeft,

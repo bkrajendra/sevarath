@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
+
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../shared/widgets/campus_map_preview.dart';
@@ -23,10 +24,19 @@ class ConfirmRideScreen extends StatelessWidget {
                     destination: LatLng(24.4850, 72.7850),
                   ),
                 ),
-                SafeArea(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: _BackButton(onTap: () => context.pop()),
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  // A bare (non-Positioned) Stack child makes the Stack
+                  // shrink-wrap to that child's size instead of filling the
+                  // Expanded area, which was squashing the map next to it
+                  // down to the back button's own width. Positioned keeps
+                  // the Stack sized to its full constraints.
+                  child: SafeArea(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: _BackButton(onTap: () => context.pop()),
+                    ),
                   ),
                 ),
               ],
@@ -40,25 +50,50 @@ class ConfirmRideScreen extends StatelessWidget {
               decoration: const BoxDecoration(
                 color: AppColors.surface,
                 borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-                boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 16, offset: Offset(0, -4))],
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black12,
+                    blurRadius: 16,
+                    offset: Offset(0, -4),
+                  ),
+                ],
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _RouteRow(dotColor: AppColors.pickupGreen, title: 'Main Gate', subtitle: 'Headquarters'),
+                  _RouteRow(
+                    dotColor: AppColors.pickupGreen,
+                    title: 'Main Gate',
+                    subtitle: 'Headquarters',
+                  ),
                   const Padding(
                     padding: EdgeInsets.only(left: 5),
-                    child: SizedBox(height: 16, child: VerticalDivider(thickness: 2, width: 2)),
+                    child: SizedBox(
+                      height: 16,
+                      child: VerticalDivider(thickness: 2, width: 2),
+                    ),
                   ),
-                  _RouteRow(dotColor: AppColors.destinationRed, title: 'Shantivan', subtitle: 'Meditation Complex'),
+                  _RouteRow(
+                    dotColor: AppColors.destinationRed,
+                    title: 'Shantivan',
+                    subtitle: 'Meditation Complex',
+                  ),
                   const SizedBox(height: 16),
                   Row(
                     children: [
-                      const Icon(Icons.directions_car_filled_rounded, size: 18, color: AppColors.textSecondary),
+                      const Icon(
+                        Icons.directions_car_filled_rounded,
+                        size: 18,
+                        color: AppColors.textSecondary,
+                      ),
                       const SizedBox(width: 6),
                       Text('1.2 km', style: AppTextStyles.secondary),
                       const SizedBox(width: 16),
-                      const Icon(Icons.access_time_rounded, size: 18, color: AppColors.textSecondary),
+                      const Icon(
+                        Icons.access_time_rounded,
+                        size: 18,
+                        color: AppColors.textSecondary,
+                      ),
                       const SizedBox(width: 6),
                       Text('~ 4 min', style: AppTextStyles.secondary),
                     ],
@@ -82,7 +117,11 @@ class ConfirmRideScreen extends StatelessWidget {
 }
 
 class _RouteRow extends StatelessWidget {
-  const _RouteRow({required this.dotColor, required this.title, required this.subtitle});
+  const _RouteRow({
+    required this.dotColor,
+    required this.title,
+    required this.subtitle,
+  });
 
   final Color dotColor;
   final String title;
@@ -92,7 +131,11 @@ class _RouteRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Container(width: 10, height: 10, decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle)),
+        Container(
+          width: 10,
+          height: 10,
+          decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
+        ),
         const SizedBox(width: 14),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
