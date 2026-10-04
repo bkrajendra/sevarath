@@ -43,13 +43,15 @@ Each phase lists its concrete deliverable - a phase isn't "done" until the deliv
 
 ### Phase 3 - Campus Map & Location Selection
 
-* Stand up the Maps & Navigation infra: OSM extract for the campus region, Planetiler tile build, Martin/TileServer GL serving base tiles + a live PostGIS-backed layer ([architecture.md §9.5](./architecture.md#95-maps--navigation-layer))
-* `campus_locations`, `campus_roads`, and `campus_restricted_zones` data + endpoints
-* Admin-triggered rebuild job: campus overlay → OSM merge (`osmium`) → Valhalla graph build → tile refresh ([architecture.md §8.2](./architecture.md#82-custom-campus-road-network--ev-specific-routing))
-* `RoutingProvider` interface with its concrete Valhalla implementation ([architecture.md §8](./architecture.md#8-maps--navigation))
-* Flutter app: MapLibre integration, campus map rendering (base + campus overlay layers), pickup/destination selection, current GPS
+* [x] `campus_locations`, `campus_roads`, and `campus_restricted_zones` data + endpoints, plus an Admin UI page for locations
+* [x] Stand up Martin, live-serving `campus_roads`/`campus_restricted_zones` straight from PostGIS (no build step) - see [k8s/maps/](../k8s/maps/README.md)
+* [x] Real OSM extract for the campus region (Abu Road/Shantivan bbox via Overpass API - see [infra/maps-data/](../infra/maps-data/README.md)) and a working Valhalla graph build pipeline (verified: real turn-by-turn routes returned from the live service)
+* [x] `RoutingProvider` interface with its concrete Valhalla implementation, plus a `GET /api/v1/maps/route` endpoint ([architecture.md §8](./architecture.md#8-maps--navigation))
+* [ ] Planetiler-built base map vector tiles (building footprints/roads/land use) - Martin currently only serves the PostGIS campus-overlay layer, not a full base map
+* [ ] Admin-triggered rebuild job as an actual Admin-app button (currently a manual `kubectl` pipeline - see [k8s/maps/README.md](../k8s/maps/README.md))
+* [ ] Flutter app: MapLibre integration, campus map rendering, pickup/destination selection, current GPS - blocked on Flutter SDK setup
 
-**Deliverable:** User can see the campus map (with custom campus roads/POIs) and select pickup/destination.
+**Deliverable:** User can see the campus map (with custom campus roads/POIs) and select pickup/destination. *(Backend/infra side is done and verified live; the Flutter side - the actual deliverable - is next once Flutter tooling is set up.)*
 
 ### Phase 4 - Booking & Dispatch
 

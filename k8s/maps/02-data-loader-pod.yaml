@@ -1,0 +1,27 @@
+# Utility pod, not part of the normal `kubectl apply -f k8s/maps/` flow - apply it
+# alone when you need to get a fresh OSM extract onto the PVC:
+#
+#   kubectl apply -f k8s/maps/02-data-loader-pod.yaml
+#   kubectl -n sevarath wait --for=condition=Ready pod/sevarath-maps-data-loader
+#   kubectl -n sevarath cp infra/maps-data/abu-road-extract.osm \
+#     sevarath-maps-data-loader:/data/raw/abu-road-extract.osm
+#   kubectl delete -f k8s/maps/02-data-loader-pod.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: sevarath-maps-data-loader
+  namespace: sevarath
+  labels:
+    app: sevarath-maps-data-loader
+spec:
+  containers:
+  - name: loader
+    image: busybox:1.36
+    command: ['sh', '-c', 'mkdir -p /data/raw /data/valhalla && sleep 3600']
+    volumeMounts:
+    - name: storage-volume
+      mountPath: /data
+  volumes:
+  - name: storage-volume
+    persistentVolumeClaim:
+      claimName: sevarath-maps-pvc

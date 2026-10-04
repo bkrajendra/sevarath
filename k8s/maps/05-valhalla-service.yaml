@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: sevarath-valhalla
+  namespace: sevarath
+  labels:
+    app: sevarath-valhalla
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8002
+    targetPort: 8002
+    protocol: TCP
+    name: http
+  selector:
+    app: sevarath-valhalla

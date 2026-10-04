@@ -8,12 +8,11 @@ stateful workload here is pinned to a single node: `replicas: 1`,
 `strategy: Recreate`).
 
 See [docs/architecture.md §9 Infrastructure Topology](../docs/architecture.md#9-infrastructure-topology)
-for the design this maps to. The Identity layer (Firebase) and the
-Maps & Navigation layer (self-hosted tile server + Valhalla, see
-[architecture.md §9.5](../docs/architecture.md#95-maps--navigation-layer)) aren't
-in this folder yet — Firebase is a managed external service with nothing to
-deploy, and the maps/routing containers land here once that module is built
-(plan.md Phase 3/6).
+for the design this maps to. The Identity layer is Firebase, a managed
+external service with nothing to deploy. The Maps & Navigation layer
+(self-hosted Martin tile server + Valhalla routing engine) lives in its own
+[k8s/maps/](maps/README.md) - see that README for deploy order and the data
+pipeline (real OSM extract → Valhalla graph build).
 
 ## Layout
 
@@ -32,6 +31,7 @@ k8s/
   admin/
     01-deployment.yaml         # sevarath-admin (static Vite build behind nginx)
     02-service.yaml
+  maps/                        # Martin + Valhalla - see maps/README.md
   ingress.yaml                 # routes /api + /health -> api, / -> admin
 ```
 

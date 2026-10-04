@@ -1,0 +1,43 @@
+# One-off graph build - re-apply (after `kubectl delete job/sevarath-valhalla-build`)
+# whenever the OSM extract changes. See infra/maps-data/README.md.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: sevarath-valhalla-build
+  namespace: sevarath
+spec:
+  backoffLimit: 1
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: valhalla-build
+        image: ghcr.io/valhalla/valhalla:latest
+        command:
+        - sh
+        - -c
+        - |
+          set -ex
+          mkdir -p /data/valhalla/tiles
+          valhalla_build_config \
+            --mjolnir-tile-dir /data/valhalla/tiles \
+            --mjolnir-tile-extract /data/valhalla/tiles.tar \
+            > /data/valhalla/valhalla.json
+          valhalla_build_tiles -c /data/valhalla/valhalla.json /data/raw/abu-road-extract.osm
+          valhalla_build_extract -c /data/valhalla/valhalla.json -v
+          echo "Build complete:"
+          ls -la /data/valhalla/
+        volumeMounts:
+        - name: storage-volume
+          mountPath: /data
+        resources:
+          requests:
+            memory: '512Mi'
+            cpu: '500m'
+          limits:
+            memory: '2Gi'
+            cpu: '2'
+      volumes:
+      - name: storage-volume
+        persistentVolumeClaim:
+          claimName: sevarath-maps-pvc

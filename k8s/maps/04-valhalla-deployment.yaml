@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sevarath-valhalla
+  namespace: sevarath
+  labels:
+    app: sevarath-valhalla
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sevarath-valhalla
+  template:
+    metadata:
+      labels:
+        app: sevarath-valhalla
+    spec:
+      # Waits for the one-off build Job (03-valhalla-build-job.yaml) to have produced
+      # valhalla.json before starting the service - avoids a crash-loop on first deploy.
+      initContainers:
+      - name: wait-for-graph
+        image: busybox:1.36
+        command: ['sh', '-c', 'until [ -f /data/valhalla/valhalla.json ]; do echo waiting for valhalla graph build...; sleep 5; done']
+        volumeMounts:
+        - name: storage-volume
+          mountPath: /data
+      containers:
+      - name: valhalla
+        image: ghcr.io/valhalla/valhalla:latest
+        command: ['valhalla_service', '/data/valhalla/valhalla.json']
+        ports:
+        - containerPort: 8002
+          name: http
+          protocol: TCP
+        volumeMounts:
+        - name: storage-volume
+          mountPath: /data
+        resources:
+          requests:
+            memory: '512Mi'
+            cpu: '250m'
+          limits:
+            memory: '1.5Gi'
+            cpu: '1'
+        readinessProbe:
+          tcpSocket:
+            port: 8002
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 3
+        livenessProbe:
+          tcpSocket:
+            port: 8002
+          initialDelaySeconds: 20
+          periodSeconds: 30
+          timeoutSeconds: 3
+          failureThreshold: 3
+      volumes:
+      - name: storage-volume
+        persistentVolumeClaim:
+          claimName: sevarath-maps-pvc

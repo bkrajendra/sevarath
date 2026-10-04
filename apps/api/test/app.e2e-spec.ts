@@ -2,9 +2,11 @@ import 'reflect-metadata';
 import { Test } from '@nestjs/testing';
 import { INestApplication, ValidationPipe, VersioningType } from '@nestjs/common';
 import request from 'supertest';
+import jwt from 'jsonwebtoken';
 import { AppModule } from '../src/app.module';
 import { DRIZZLE } from '../src/db/drizzle.module';
 import { FIREBASE_ADMIN } from '../src/auth/firebase/firebase-admin.provider';
+import { ROUTING_PROVIDER, type RoutingProvider } from '../src/maps/interfaces/routing-provider.interface';
 
 /**
  * Bootstraps the app the same way main.ts does (global prefix + versioning +
@@ -24,11 +26,29 @@ describe('App routing (e2e)', () => {
     execute: jest.fn().mockResolvedValue([{ ok: 1 }]),
   };
 
+  const mockRoute = {
+    shape: 'abc123',
+    length: 1.2,
+    time: 90,
+    maneuvers: [{ instruction: 'Drive east.', length: 1.2, time: 90, beginShapeIndex: 0, endShapeIndex: 5 }],
+  };
+  const mockRoutingProvider: RoutingProvider = {
+    getRoute: jest.fn().mockResolvedValue(mockRoute),
+  };
+
+  let userToken: string;
+
   beforeAll(async () => {
     process.env.JWT_ACCESS_SECRET ??= 'test-access-secret';
     process.env.JWT_ACCESS_TTL ??= '15m';
     process.env.JWT_REFRESH_SECRET ??= 'test-refresh-secret';
     process.env.JWT_REFRESH_TTL ??= '30d';
+
+    userToken = jwt.sign(
+      { sub: '00000000-0000-0000-0000-000000000001', role: 'USER' },
+      process.env.JWT_ACCESS_SECRET,
+      { expiresIn: '15m' },
+    );
 
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
@@ -37,6 +57,8 @@ describe('App routing (e2e)', () => {
       .useValue(mockDb)
       .overrideProvider(FIREBASE_ADMIN)
       .useValue(null)
+      .overrideProvider(ROUTING_PROVIDER)
+      .useValue(mockRoutingProvider)
       .compile();
 
     app = moduleRef.createNestApplication();
@@ -98,6 +120,26 @@ describe('App routing (e2e)', () => {
 
     it('GET /api/v1/campus/restricted-zones without a token -> 401 (route exists, guard rejects)', async () => {
       await request(app.getHttpServer()).get('/api/v1/campus/restricted-zones').expect(401);
+    });
+
+    it('GET /api/v1/maps/route without a token -> 401 (route exists, guard rejects)', async () => {
+      await request(app.getHttpServer()).get('/api/v1/maps/route').expect(401);
+    });
+  });
+
+  describe('maps/route (RoutingProvider mocked - real Valhalla wiring is manually verified against the live service)', () => {
+    it('returns the route from RoutingProvider for an authenticated request', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/api/v1/maps/route')
+        .query({ originLat: 24.4828, originLng: 72.782, destinationLat: 24.485, destinationLng: 72.785 })
+        .set('Authorization', `Bearer ${userToken}`)
+        .expect(200);
+
+      expect(res.body).toEqual(mockRoute);
+      expect(mockRoutingProvider.getRoute).toHaveBeenCalledWith(
+        { latitude: 24.4828, longitude: 72.782 },
+        { latitude: 24.485, longitude: 72.785 },
+      );
     });
   });
 

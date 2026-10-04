@@ -1,5 +1,11 @@
 import { Module } from '@nestjs/common';
+import { MapsController } from './maps.controller';
+import { ROUTING_PROVIDER } from './interfaces/routing-provider.interface';
+import { ValhallaRoutingProvider } from './providers/valhalla-routing.provider';
 
-/** RoutingProvider (Valhalla) + MapProvider interfaces - see architecture.md §8 and plan.md Phase 3/6. */
-@Module({})
+@Module({
+  controllers: [MapsController],
+  providers: [{ provide: ROUTING_PROVIDER, useClass: ValhallaRoutingProvider }],
+  exports: [ROUTING_PROVIDER],
+})
 export class MapsModule {}

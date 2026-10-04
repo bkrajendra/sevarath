@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sevarath-martin
+  namespace: sevarath
+  labels:
+    app: sevarath-martin
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sevarath-martin
+  template:
+    metadata:
+      labels:
+        app: sevarath-martin
+    spec:
+      containers:
+      - name: martin
+        image: ghcr.io/maplibre/martin:latest
+        # No config file - Martin auto-discovers geometry-column tables via
+        # DATABASE_URL (campus_roads, campus_restricted_zones; campus_locations has
+        # no geometry column, so it isn't tile-served - fetch it via the REST API).
+        envFrom:
+        - secretRef:
+            name: sevarath-martin-env
+        ports:
+        - containerPort: 3000
+          name: http
+          protocol: TCP
+        resources:
+          requests:
+            memory: '128Mi'
+            cpu: '100m'
+          limits:
+            memory: '384Mi'
+            cpu: '300m'
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 3
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 15
+          periodSeconds: 30
+          timeoutSeconds: 3
+          failureThreshold: 3
