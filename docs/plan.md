@@ -49,7 +49,10 @@ Each phase lists its concrete deliverable - a phase isn't "done" until the deliv
 * [x] `RoutingProvider` interface with its concrete Valhalla implementation, plus a `GET /api/v1/maps/route` endpoint ([architecture.md §8](./architecture.md#8-maps--navigation))
 * [ ] Planetiler-built base map vector tiles (building footprints/roads/land use) - Martin currently only serves the PostGIS campus-overlay layer, not a full base map
 * [ ] Admin-triggered rebuild job as an actual Admin-app button (currently a manual `kubectl` pipeline - see [k8s/maps/README.md](../k8s/maps/README.md))
-* [ ] Flutter app: MapLibre integration, campus map rendering, pickup/destination selection, current GPS - blocked on Flutter SDK setup
+* [x] Flutter app scaffolded (`apps/mobile`, one codebase/two flavors - `lib/main_user.dart`/`lib/main_driver.dart`) with the full User-app UI flow built against `docs/branding-ui.png`: splash, home, select destination, confirm ride (live MapLibre map), finding vehicle, driver en route, on the way, ride details, rate ride, profile. Screens use mock data (`lib/features/ride/models/mock_campus_data.dart`) - wiring to apps/api is a follow-up.
+* [ ] Wire the Flutter app to apps/api (real auth, campus locations, booking) - currently mock data
+* [ ] Driver-flavor-specific screens (go online/offline, accept/reject) - `main_driver.dart` currently boots the same placeholder shell as the user flavor
+* [ ] Android build flavors (Gradle `productFlavors`) / iOS schemes - not yet wired; Android SDK cmdline-tools also need installing in this dev environment before Android builds work at all
 
 **Deliverable:** User can see the campus map (with custom campus roads/POIs) and select pickup/destination. *(Backend/infra side is done and verified live; the Flutter side - the actual deliverable - is next once Flutter tooling is set up.)*
 
