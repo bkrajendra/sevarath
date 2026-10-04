@@ -1,5 +1,7 @@
 # SevaRath - Brahma Kumaris Internal EV Booking System
 
+
+![SevaRath - Brahma Kumaris Internal EV Booking System](docs/slides.png)
 ## 1. Purpose
 
 Build an internal EV transportation application for use within the Shantivan and nearby premises.
@@ -20,6 +22,8 @@ The application provides a simple Uber-like experience for:
 There is **no payment, fare calculation, surge pricing, wallet, or commercial transaction**.
 
 The system is intended for controlled internal use within the headquarters premises.
+
+
 
 ---
 
