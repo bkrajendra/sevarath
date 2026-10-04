@@ -82,14 +82,31 @@ class _CampusMapPreviewState extends State<CampusMapPreview> {
 
   @override
   Widget build(BuildContext context) {
-    return MapLibreMap(
-      styleString: MapLibreStyles.openfreemapLiberty,
-      initialCameraPosition: CameraPosition(target: widget.center, zoom: widget.zoom),
-      myLocationEnabled: false,
-      compassEnabled: false,
-      attributionButtonPosition: AttributionButtonPosition.bottomLeft,
-      onMapCreated: (controller) => _controller = controller,
-      onStyleLoadedCallback: _onStyleLoaded,
+    // LayoutBuilder gives the platform view its final pixel size up front.
+    // On Flutter Web, maplibre_gl only re-syncs its canvas on a browser
+    // window resize; a map created inside a Stack/Expanded chain without a
+    // concrete size can get stuck rendering at a stale, tiny size. Keying on
+    // the rounded size also forces a clean remount (rather than a buggy
+    // in-place resize) if the available space genuinely changes later.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SizedBox(
+          width: constraints.maxWidth,
+          height: constraints.maxHeight,
+          child: MapLibreMap(
+            key: ValueKey(
+              'campus-map-${constraints.maxWidth.round()}x${constraints.maxHeight.round()}',
+            ),
+            styleString: MapLibreStyles.openfreemapLiberty,
+            initialCameraPosition: CameraPosition(target: widget.center, zoom: widget.zoom),
+            myLocationEnabled: false,
+            compassEnabled: false,
+            attributionButtonPosition: AttributionButtonPosition.bottomLeft,
+            onMapCreated: (controller) => _controller = controller,
+            onStyleLoadedCallback: _onStyleLoaded,
+          ),
+        );
+      },
     );
   }
 }
