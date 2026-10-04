@@ -7,7 +7,6 @@ import {
   Smartphone,
   Sparkles,
 } from 'lucide-react';
-import brandLogo from '../../../../docs/logo.png';
 
 interface GitHubAsset {
   id: number;
@@ -89,7 +88,7 @@ export function DownloadPage() {
       <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-5 py-6 sm:px-8">
         <a href="/download" className="flex items-center gap-3" aria-label="SevaRath download home">
           <img
-            src={brandLogo}
+            src="/sevarath-logo.png"
             alt=""
             className="h-24 w-auto object-contain"
           />
