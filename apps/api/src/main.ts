@@ -9,6 +9,10 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  // Permissive for now (internal/on-prem system, pre-production) - tighten to an
+  // explicit origin allowlist before any public-facing deployment.
+  app.enableCors({ origin: true, credentials: true });
+
   const accessLog = new Logger('HTTP');
   app.use((req: Request, res: Response, next: NextFunction) => {
     const start = Date.now();
