@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 const navItems = [
   { to: '/', label: 'Drivers' },
   { to: '/vehicles', label: 'Vehicles' },
+  { to: '/campus-locations', label: 'Campus Locations' },
 ];
 
 export function DashboardLayout() {
@@ -36,6 +37,7 @@ export function DashboardLayout() {
               <NavLink
                 key={item.to}
                 to={item.to}
+                end={item.to === '/'}
                 className={({ isActive }) =>
                   `text-sm ${isActive ? 'font-medium text-slate-900' : 'text-slate-500 hover:text-slate-700'}`
                 }

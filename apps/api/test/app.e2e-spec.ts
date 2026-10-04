@@ -87,6 +87,18 @@ describe('App routing (e2e)', () => {
     it('GET /api/v1/drivers without a token -> 401 (route exists, guard rejects)', async () => {
       await request(app.getHttpServer()).get('/api/v1/drivers').expect(401);
     });
+
+    it('GET /api/v1/campus/locations without a token -> 401 (route exists, guard rejects)', async () => {
+      await request(app.getHttpServer()).get('/api/v1/campus/locations').expect(401);
+    });
+
+    it('GET /api/v1/campus/roads without a token -> 401 (route exists, guard rejects)', async () => {
+      await request(app.getHttpServer()).get('/api/v1/campus/roads').expect(401);
+    });
+
+    it('GET /api/v1/campus/restricted-zones without a token -> 401 (route exists, guard rejects)', async () => {
+      await request(app.getHttpServer()).get('/api/v1/campus/restricted-zones').expect(401);
+    });
   });
 
   describe('auth/login with Firebase unconfigured', () => {

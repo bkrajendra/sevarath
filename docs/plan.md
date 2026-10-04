@@ -8,7 +8,6 @@ Track before/at the start of the relevant phase - not blocking documentation, bu
 
 | Decision | Options | Needed by |
 |---|---|---|
-| Flutter project layout | One app with two flavors (User/Driver) vs. two separate Flutter apps sharing a package | Phase 1 |
 | Location retention policy | Whether/how long raw driver location history is persisted beyond Redis TTL | Phase 5 |
 | On-prem Kubernetes specifics | Cluster access, ingress, CI/CD deployment target | Phase 1 |
 | Valhalla costing profile for EVs | `auto` with tuned `costing_options` vs. `motor_scooter` (closer default speed to a campus EV) - see [architecture.md §8.2](./architecture.md#82-custom-campus-road-network--ev-specific-routing) | Phase 6 |
@@ -16,6 +15,8 @@ Track before/at the start of the relevant phase - not blocking documentation, bu
 | Public OSM extract refresh cadence | How often the regional base extract is re-pulled (separate from the Admin-triggered campus-overlay rebuild, which fires on demand) | Phase 3 |
 
 **Decided:** map rendering, tiles, and routing are a fully open-source, self-hosted stack - MapLibre GL Native (Flutter) + Martin/TileServer GL + Valhalla. See [architecture.md §8](./architecture.md#8-maps--navigation).
+
+**Decided:** User and Driver are **one Flutter codebase, two build flavors** - not two separate apps. Shared screens/widgets/API client live in one `lib/`, and flavor-specific config (app name, bundle/package id, icon, entry point, feature flags like "show driver-only screens") is injected per-flavor via Flutter's native flavor mechanism (`--flavor user|driver` + `-t lib/main_user.dart`/`lib/main_driver.dart`, Android `productFlavors`, iOS schemes), each producing a distinct installable app from the same source. See [architecture.md §7.2](./architecture.md#72-user--driver-flutter).
 
 ## 2. Phased Delivery
 

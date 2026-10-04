@@ -260,6 +260,102 @@ export interface paths {
         patch: operations["VehiclesController_updateStatus"];
         trace?: never;
     };
+    "/api/v1/campus/locations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["CampusLocationsController_findAll"];
+        put?: never;
+        post: operations["CampusLocationsController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/campus/locations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["CampusLocationsController_findOne"];
+        put?: never;
+        post?: never;
+        delete: operations["CampusLocationsController_remove"];
+        options?: never;
+        head?: never;
+        patch: operations["CampusLocationsController_update"];
+        trace?: never;
+    };
+    "/api/v1/campus/roads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["CampusRoadsController_findAll"];
+        put?: never;
+        post: operations["CampusRoadsController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/campus/roads/{id}/active": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["CampusRoadsController_setActive"];
+        trace?: never;
+    };
+    "/api/v1/campus/restricted-zones": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["CampusRestrictedZonesController_findAll"];
+        put?: never;
+        post: operations["CampusRestrictedZonesController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/campus/restricted-zones/{id}/active": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["CampusRestrictedZonesController_setActive"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -344,6 +440,85 @@ export interface components {
         UpdateVehicleStatusDto: {
             /** @enum {string} */
             status: "AVAILABLE" | "IN_SERVICE" | "MAINTENANCE" | "INACTIVE";
+        };
+        CreateCampusLocationDto: {
+            /** @example Main Gate */
+            name: string;
+            /** @enum {string} */
+            type: "GATE" | "BUILDING" | "OFFICE" | "RESIDENCE" | "DINING" | "PARKING" | "EV_STOP" | "MEDICAL" | "RECEPTION" | "OTHER";
+            latitude: number;
+            longitude: number;
+            description?: string;
+        };
+        CampusLocationResponseDto: {
+            id: string;
+            name: string;
+            /** @enum {string} */
+            type: "GATE" | "BUILDING" | "OFFICE" | "RESIDENCE" | "DINING" | "PARKING" | "EV_STOP" | "MEDICAL" | "RECEPTION" | "OTHER";
+            latitude: number;
+            longitude: number;
+            description: string | null;
+            isActive: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        UpdateCampusLocationDto: {
+            name?: string;
+            /** @enum {string} */
+            type?: "GATE" | "BUILDING" | "OFFICE" | "RESIDENCE" | "DINING" | "PARKING" | "EV_STOP" | "MEDICAL" | "RECEPTION" | "OTHER";
+            latitude?: number;
+            longitude?: number;
+            description?: string;
+            isActive?: boolean;
+        };
+        GeoJsonLineStringDto: {
+            /** @enum {string} */
+            type: "LineString";
+            /** @description Array of [longitude, latitude] pairs, at least 2 points */
+            coordinates: unknown[][];
+        };
+        CreateCampusRoadDto: {
+            /** @example Service road behind Dining Hall */
+            name: string;
+            geometry: components["schemas"]["GeoJsonLineStringDto"];
+        };
+        CampusRoadResponseDto: {
+            id: string;
+            name: string;
+            geometry: components["schemas"]["GeoJsonLineStringDto"];
+            isActive: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        UpdateActiveDto: {
+            isActive: boolean;
+        };
+        GeoJsonPolygonDto: {
+            /** @enum {string} */
+            type: "Polygon";
+            /** @description Array of linear rings; each ring is an array of [longitude, latitude] pairs, first = last point */
+            coordinates: unknown[][];
+        };
+        CreateCampusRestrictedZoneDto: {
+            /** @example Dining plaza - event closure */
+            name: string;
+            reason?: string;
+            geometry: components["schemas"]["GeoJsonPolygonDto"];
+        };
+        CampusRestrictedZoneResponseDto: {
+            id: string;
+            name: string;
+            reason: string | null;
+            geometry: components["schemas"]["GeoJsonPolygonDto"];
+            isActive: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
         };
     };
     responses: never;
@@ -726,6 +901,253 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VehicleResponseDto"];
+                };
+            };
+        };
+    };
+    CampusLocationsController_findAll: {
+        parameters: {
+            query?: {
+                includeInactive?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CampusLocationResponseDto"][];
+                };
+            };
+        };
+    };
+    CampusLocationsController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateCampusLocationDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CampusLocationResponseDto"];
+                };
+            };
+        };
+    };
+    CampusLocationsController_findOne: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CampusLocationResponseDto"];
+                };
+            };
+        };
+    };
+    CampusLocationsController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CampusLocationsController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateCampusLocationDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CampusLocationResponseDto"];
+                };
+            };
+        };
+    };
+    CampusRoadsController_findAll: {
+        parameters: {
+            query?: {
+                includeInactive?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CampusRoadResponseDto"][];
+                };
+            };
+        };
+    };
+    CampusRoadsController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateCampusRoadDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CampusRoadResponseDto"];
+                };
+            };
+        };
+    };
+    CampusRoadsController_setActive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateActiveDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CampusRoadResponseDto"];
+                };
+            };
+        };
+    };
+    CampusRestrictedZonesController_findAll: {
+        parameters: {
+            query?: {
+                includeInactive?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CampusRestrictedZoneResponseDto"][];
+                };
+            };
+        };
+    };
+    CampusRestrictedZonesController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateCampusRestrictedZoneDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CampusRestrictedZoneResponseDto"];
+                };
+            };
+        };
+    };
+    CampusRestrictedZonesController_setActive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateActiveDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CampusRestrictedZoneResponseDto"];
                 };
             };
         };

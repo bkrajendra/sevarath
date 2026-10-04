@@ -8,6 +8,7 @@ import { LoginPage } from '@/pages/Login';
 import { DashboardLayout } from '@/pages/DashboardLayout';
 import { DriversPage } from '@/pages/Drivers';
 import { VehiclesPage } from '@/pages/Vehicles';
+import { CampusLocationsPage } from '@/pages/CampusLocations';
 
 const engine = new Styletron();
 const queryClient = new QueryClient();
@@ -24,6 +25,7 @@ export default function App() {
                 <Route element={<DashboardLayout />}>
                   <Route path="/" element={<DriversPage />} />
                   <Route path="/vehicles" element={<VehiclesPage />} />
+                  <Route path="/campus-locations" element={<CampusLocationsPage />} />
                 </Route>
               </Routes>
             </BrowserRouter>

@@ -208,7 +208,7 @@ React + Tailwind + shadcn/ui + Base Web, consuming the OpenAPI-generated types a
 
 ### 7.2 User / Driver (Flutter)
 
-Single Flutter codebase producing both the User and Driver apps (either as flavors/entry-points in one project, or two apps sharing a common package) for iOS and Android. Responsibilities:
+One Flutter codebase, two build flavors - `user` and `driver` - each with its own entry point (`lib/main_user.dart` / `lib/main_driver.dart`), app name/icon/bundle id, and a feature flag gating driver-only screens, producing two distinct installable apps for iOS and Android from shared source. Responsibilities:
 
 * GPS acquisition and the location-push cadence defined in [specification.md §6](./specification.md#6-location--accuracy-rules)
 * Map rendering (MapLibre GL Native), route/marker drawing, and the full in-app turn-by-turn navigation experience (see §8)
