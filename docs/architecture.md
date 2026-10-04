@@ -349,12 +349,12 @@ PostgreSQL + Drizzle is the ACID-compliant system of record for everything that 
 
 ### 9.4 Identity Layer
 
-NestJS Passport strategies sit directly in front of the Auth module:
+NestJS Passport strategies sit directly in front of the Auth module. Two independent paths both terminate in the same JWT issuance (`AuthService.issueTokens`), so downstream RBAC/guards are identical regardless of how the user authenticated:
 
-* **Google OAuth** - SSO path, primarily for Admin/Operator staff accounts tied to an organizational Google Workspace.
-* **Mobile OTP** - primary path for User/Driver accounts (mobile-number + OTP, no password), matching the Flutter apps' sign-in flow.
+* **Mobile/email + password (primary, self-hosted).** `POST /auth/register` and `POST /auth/login/password`, backed by a bcrypt-hashed `password_hash` column on `users`. Chosen over Firebase as the default path to keep the system fully on-premise/open-source and avoid Firebase's paid tiers for production SMS delivery. No OTP verification yet - mobile numbers are taken at face value on registration; OTP verification is a follow-up phase.
+* **Firebase (Google OAuth SSO + Phone-OTP) - optional, not currently wired into either Flutter app's UI.** The code (`FirebaseStrategy`, `POST /auth/login` with a Firebase ID token) is untouched and still works end-to-end once a Firebase project's client config is added to the Flutter apps; it's simply not the default sign-up/sign-in flow right now. `DRIVER`/`ADMIN`/`OPERATOR` accounts via this path still must be pre-provisioned by an Admin, as before.
 
-**Concrete provider: Firebase Authentication.** Rather than building and operating custom OTP/SMS delivery, both flows are handled client-side by the Firebase Auth SDK (Phone-OTP in Flutter, Google Sign-In in both Flutter and the Admin React app), which returns a Firebase ID token. The backend's `FirebaseStrategy` verifies that token server-side via `firebase-admin`, resolves it to a `users` row (by `firebase_uid`, auto-provisioning on first login for role `USER` only - `DRIVER`/`ADMIN`/`OPERATOR` accounts must already exist, created by an Admin), and issues our own app JWT (access + refresh). Both strategies terminate in the same JWT issuance path so downstream RBAC/guards are identical regardless of how the user authenticated.
+**Concrete provider for the optional path: Firebase Authentication**, as previously described - handled client-side by the Firebase Auth SDK, verified server-side via `firebase-admin`.
 
 ### 9.5 Maps & Navigation Layer
 
