@@ -1,11 +1,16 @@
-import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { ConflictException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
+import * as bcrypt from 'bcryptjs';
 import type * as admin from 'firebase-admin';
 import { UsersService } from '../users/users.service';
 import type { User } from '../db/schema';
 import type { JwtPayload } from './types/jwt-payload.interface';
 import type { TokenResponseDto } from './dto/token-response.dto';
+import type { RegisterDto } from './dto/register.dto';
+import type { PasswordLoginDto } from './dto/password-login.dto';
+
+const SALT_ROUNDS = 10;
 
 @Injectable()
 export class AuthService {
@@ -57,6 +62,45 @@ export class AuthService {
       firebaseUid: decoded.uid,
     });
     return this.issueTokens(created);
+  }
+
+  /**
+   * Self-hosted mobile/email + password registration - the primary sign-up
+   * path for now. Firebase/OTP (loginWithFirebaseToken above) stays wired up
+   * as a dormant, optional path; see docs/architecture.md §9.4.
+   */
+  async register(dto: RegisterDto): Promise<TokenResponseDto> {
+    const existing = await this.usersService.findByMobileOrEmail(dto.mobile, dto.email);
+    if (existing) {
+      throw new ConflictException('An account with this mobile number or email already exists');
+    }
+
+    const passwordHash = await bcrypt.hash(dto.password, SALT_ROUNDS);
+    const created = await this.usersService.create({
+      name: dto.name,
+      mobile: dto.mobile,
+      email: dto.email,
+      role: 'USER',
+      status: 'ACTIVE',
+      passwordHash,
+    });
+    return this.issueTokens(created);
+  }
+
+  async loginWithPassword(dto: PasswordLoginDto): Promise<TokenResponseDto> {
+    const user = await this.usersService.findByMobileOrEmail(dto.identifier, dto.identifier);
+    // Same message whether the account doesn't exist, has no password set
+    // (Firebase-only), or the password is wrong - don't leak which case it is.
+    if (!user || !user.passwordHash) {
+      throw new UnauthorizedException('Invalid mobile/email or password');
+    }
+
+    const matches = await bcrypt.compare(dto.password, user.passwordHash);
+    if (!matches) {
+      throw new UnauthorizedException('Invalid mobile/email or password');
+    }
+
+    return this.issueTokens(user);
   }
 
   async refresh(refreshToken: string): Promise<TokenResponseDto> {
