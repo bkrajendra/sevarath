@@ -35,12 +35,12 @@ jobs:
       - name: Rename APK
         run: |
           mkdir -p dist
-          cp build/app/outputs/flutter-apk/app-release.apk "dist/sevarath-${{ inputs.tag_name }}.apk"
+          cp build/app/outputs/flutter-apk/app-release.apk "dist/SevaRath-${{ inputs.tag_name }}.apk"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ inputs.tag_name }}
-          files: apps/mobile/dist/sevarath-${{ inputs.tag_name }}.apk
+          files: apps/mobile/dist/SevaRath-${{ inputs.tag_name }}.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,6 +1,6 @@
 {
-    "name": "sevarath_mobile",
-    "short_name": "sevarath_mobile",
+    "name": "SevaRath",
+    "short_name": "SevaRath",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
