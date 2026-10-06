@@ -40,10 +40,19 @@ final GoRouter appRouter = GoRouter(
     if (isLoading) {
       return goingToSplash ? null : '/splash';
     }
+    // The splash screen has its own branding-delay timer that leaves for
+    // /home on its own terms - never race it by redirecting out from under
+    // it the instant the auth check resolves (which can be faster than the
+    // splash's delay). Once it calls context.go('/home'), this redirect
+    // runs again on that new location and sends unauthenticated users on to
+    // /login as usual.
+    if (goingToSplash) {
+      return null;
+    }
     if (!isAuthed && !goingToAuthScreen) {
       return '/login';
     }
-    if (isAuthed && (goingToAuthScreen || goingToSplash)) {
+    if (isAuthed && goingToAuthScreen) {
       return '/home';
     }
     return null;

@@ -1,23 +1,28 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
-import '../ride/models/mock_campus_data.dart';
 import '../ride/models/ride_models.dart';
+import 'data/campus_locations_repository.dart';
 
-class SelectDestinationScreen extends StatefulWidget {
+class SelectDestinationScreen extends ConsumerStatefulWidget {
   const SelectDestinationScreen({super.key});
 
   @override
-  State<SelectDestinationScreen> createState() => _SelectDestinationScreenState();
+  ConsumerState<SelectDestinationScreen> createState() =>
+      _SelectDestinationScreenState();
 }
 
-class _SelectDestinationScreenState extends State<SelectDestinationScreen> {
+class _SelectDestinationScreenState
+    extends ConsumerState<SelectDestinationScreen> {
   final _searchController = TextEditingController();
   String _filter = 'All';
   final _favorites = <String>{};
 
   static const _filters = ['All', 'Buildings', 'Gates', 'Facilities'];
+  static const _facilityTypes = {'PARKING', 'MEDICAL', 'DINING', 'EV_STOP'};
 
   @override
   void dispose() {
@@ -25,20 +30,26 @@ class _SelectDestinationScreenState extends State<SelectDestinationScreen> {
     super.dispose();
   }
 
-  List<CampusLocationUi> get _filtered {
+  List<CampusLocationUi> _filtered(List<CampusLocationUi> all) {
     final query = _searchController.text.trim().toLowerCase();
-    return mockCampusLocations.where((loc) {
-      final matchesQuery = query.isEmpty || loc.name.toLowerCase().contains(query);
-      final matchesFilter = _filter == 'All' ||
-          (_filter == 'Gates' && loc.id == 'main-gate') ||
-          (_filter == 'Buildings' && !['main-gate', 'parking'].contains(loc.id)) ||
-          (_filter == 'Facilities' && ['parking', 'hospital', 'dining-hall'].contains(loc.id));
+    return all.where((loc) {
+      final matchesQuery =
+          query.isEmpty || loc.name.toLowerCase().contains(query);
+      final matchesFilter =
+          _filter == 'All' ||
+          (_filter == 'Gates' && loc.type == 'GATE') ||
+          (_filter == 'Facilities' && _facilityTypes.contains(loc.type)) ||
+          (_filter == 'Buildings' &&
+              loc.type != 'GATE' &&
+              !_facilityTypes.contains(loc.type));
       return matchesQuery && matchesFilter;
     }).toList();
   }
 
   @override
   Widget build(BuildContext context) {
+    final locationsAsync = ref.watch(campusLocationsProvider);
+
     return Scaffold(
       appBar: AppBar(title: const Text('Select Destination')),
       body: Column(
@@ -50,7 +61,10 @@ class _SelectDestinationScreenState extends State<SelectDestinationScreen> {
               onChanged: (_) => setState(() {}),
               decoration: const InputDecoration(
                 hintText: 'Search building or location...',
-                prefixIcon: Icon(Icons.search_rounded, color: AppColors.textSecondary),
+                prefixIcon: Icon(
+                  Icons.search_rounded,
+                  color: AppColors.textSecondary,
+                ),
               ),
             ),
           ),
@@ -75,50 +89,96 @@ class _SelectDestinationScreenState extends State<SelectDestinationScreen> {
                   ),
                   backgroundColor: AppColors.surfaceTint,
                   side: BorderSide.none,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
                 );
               },
             ),
           ),
           const SizedBox(height: 8),
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              itemCount: _filtered.length + 1,
-              itemBuilder: (context, index) {
-                if (index == _filtered.length) {
-                  return ListTile(
-                    leading: const Icon(Icons.add_location_alt_outlined, color: AppColors.brandGreen),
-                    title: const Text('Additional Location'),
-                    subtitle: const Text('Enter custom location'),
-                    trailing: const Icon(Icons.chevron_right_rounded),
-                    onTap: () => context.push('/confirm-ride'),
-                  );
-                }
-                final loc = _filtered[index];
-                final isFavorite = _favorites.contains(loc.id);
-                return ListTile(
-                  leading: Container(
-                    width: 42,
-                    height: 42,
-                    decoration: BoxDecoration(
-                      color: loc.badgeColor.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(loc.icon, color: loc.badgeColor, size: 20),
+            child: locationsAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, stackTrace) => Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.wifi_off_rounded,
+                        size: 40,
+                        color: AppColors.textSecondary,
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Could not load locations',
+                        style: AppTextStyles.bodyStrong,
+                      ),
+                      const SizedBox(height: 8),
+                      OutlinedButton(
+                        onPressed: () =>
+                            ref.invalidate(campusLocationsProvider),
+                        child: const Text('Retry'),
+                      ),
+                    ],
                   ),
-                  title: Text(loc.name, style: AppTextStyles.bodyStrong),
-                  subtitle: Text(loc.category, style: AppTextStyles.secondary),
-                  trailing: IconButton(
-                    icon: Icon(
-                      isFavorite ? Icons.star_rounded : Icons.star_border_rounded,
-                      color: isFavorite ? AppColors.ratingGold : AppColors.textSecondary,
-                    ),
-                    onPressed: () => setState(() {
-                      isFavorite ? _favorites.remove(loc.id) : _favorites.add(loc.id);
-                    }),
-                  ),
-                  onTap: () => context.push('/confirm-ride'),
+                ),
+              ),
+              data: (locations) {
+                final filtered = _filtered(locations);
+                return ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  itemCount: filtered.length + 1,
+                  itemBuilder: (context, index) {
+                    if (index == filtered.length) {
+                      return ListTile(
+                        leading: const Icon(
+                          Icons.add_location_alt_outlined,
+                          color: AppColors.brandGreen,
+                        ),
+                        title: const Text('Additional Location'),
+                        subtitle: const Text('Enter custom location'),
+                        trailing: const Icon(Icons.chevron_right_rounded),
+                        onTap: () => context.push('/confirm-ride'),
+                      );
+                    }
+                    final loc = filtered[index];
+                    final isFavorite = _favorites.contains(loc.id);
+                    return ListTile(
+                      leading: Container(
+                        width: 42,
+                        height: 42,
+                        decoration: BoxDecoration(
+                          color: loc.badgeColor.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(loc.icon, color: loc.badgeColor, size: 20),
+                      ),
+                      title: Text(loc.name, style: AppTextStyles.bodyStrong),
+                      subtitle: Text(
+                        loc.category,
+                        style: AppTextStyles.secondary,
+                      ),
+                      trailing: IconButton(
+                        icon: Icon(
+                          isFavorite
+                              ? Icons.star_rounded
+                              : Icons.star_border_rounded,
+                          color: isFavorite
+                              ? AppColors.ratingGold
+                              : AppColors.textSecondary,
+                        ),
+                        onPressed: () => setState(() {
+                          isFavorite
+                              ? _favorites.remove(loc.id)
+                              : _favorites.add(loc.id);
+                        }),
+                      ),
+                      onTap: () => context.push('/confirm-ride'),
+                    );
+                  },
                 );
               },
             ),

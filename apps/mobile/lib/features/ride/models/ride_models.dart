@@ -11,6 +11,7 @@ class CampusLocationUi {
     required this.icon,
     required this.badgeColor,
     this.subtitle,
+    this.type,
   });
 
   final String id;
@@ -19,6 +20,7 @@ class CampusLocationUi {
   final IconData icon;
   final Color badgeColor;
   final String? subtitle;
+  final String? type;
 }
 
 class RideDriverUi {
