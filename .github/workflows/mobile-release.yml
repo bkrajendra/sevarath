@@ -30,7 +30,7 @@ jobs:
 
       - run: flutter pub get
 
-      - run: flutter build apk --release
+      - run: flutter build apk --release --dart-define=API_BASE_URL=https://sevarath.rajendrakhope.com/api/v1
 
       - name: Rename APK
         run: |
