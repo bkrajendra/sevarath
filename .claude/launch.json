@@ -1,0 +1,14 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "mobile-user-web",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": [
+        "/c",
+        "cd apps\\mobile && flutter run -d web-server -t lib/main_user.dart --web-port=8765"
+      ],
+      "port": 8765
+    }
+  ]
+}
