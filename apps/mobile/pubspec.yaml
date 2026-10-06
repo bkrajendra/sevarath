@@ -53,6 +53,20 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
   flutter_secure_storage_platform_interface: ^2.1.1
+  flutter_native_splash: ^2.4.8
+
+# Config consumed by `dart run flutter_native_splash:create` - generates the
+# native pre-boot splash shown before the Flutter engine draws its first
+# frame (see lib/features/splash/splash_screen.dart for the animated Dart
+# splash that takes over immediately after). Source image is the same
+# sunburst mark used elsewhere in the app; re-run the command whenever this
+# config or the source image changes, and commit the generated native files.
+flutter_native_splash:
+  color: "#FAF9F6"
+  image: assets/images/sunburst-mark.png
+  android_12:
+    color: "#FAF9F6"
+    image: assets/images/sunburst-mark.png
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
