@@ -1,4 +1,4 @@
-package com.sevarath.sevarath_mobile
+package com.rajendrakhope.sevarath
 
 import io.flutter.embedding.android.FlutterActivity
 
