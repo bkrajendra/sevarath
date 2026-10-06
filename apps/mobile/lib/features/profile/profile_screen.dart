@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
+import '../auth/providers/auth_provider.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(authControllerProvider).user;
     return Scaffold(
       appBar: AppBar(title: const Text('Profile')),
       body: ListView(
@@ -30,7 +33,7 @@ class ProfileScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Rajendra',
+                    user?.name ?? 'Sevarath user',
                     style: AppTextStyles.headline.copyWith(fontSize: 20),
                   ),
                   Text(
@@ -73,7 +76,10 @@ class ProfileScreen extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             child: OutlinedButton(
-              onPressed: () {},
+              onPressed: () async {
+                await ref.read(authControllerProvider.notifier).logout();
+                if (context.mounted) context.go('/login');
+              },
               style: OutlinedButton.styleFrom(foregroundColor: AppColors.error),
               child: const Text('Sign Out'),
             ),

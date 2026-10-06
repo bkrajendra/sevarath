@@ -1,16 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
+import '../auth/providers/auth_provider.dart';
 import '../ride/models/mock_campus_data.dart';
 import 'widgets/quick_location_chip.dart';
 import 'widgets/where_to_card.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(authControllerProvider).user;
     final quickLocations = mockCampusLocations.take(6).toList();
     final recentPlaces = mockCampusLocations.skip(1).take(3).toList();
 
@@ -24,7 +28,10 @@ class HomeScreen extends StatelessWidget {
                 const CircleAvatar(
                   radius: 22,
                   backgroundColor: AppColors.surfaceTint,
-                  child: Icon(Icons.person_rounded, color: AppColors.brandGreen),
+                  child: Icon(
+                    Icons.person_rounded,
+                    color: AppColors.brandGreen,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -32,7 +39,10 @@ class HomeScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text('Good Morning', style: AppTextStyles.secondary),
-                      Text('Rajendra', style: AppTextStyles.headline.copyWith(fontSize: 20)),
+                      Text(
+                        user?.name ?? 'there',
+                        style: AppTextStyles.headline.copyWith(fontSize: 20),
+                      ),
                     ],
                   ),
                 ),
@@ -84,7 +94,10 @@ class HomeScreen extends StatelessWidget {
                       color: AppColors.surfaceTint,
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const Icon(Icons.location_on_outlined, color: AppColors.brandGreen),
+                    child: const Icon(
+                      Icons.location_on_outlined,
+                      color: AppColors.brandGreen,
+                    ),
                   ),
                   title: Text(loc.name, style: AppTextStyles.bodyStrong),
                   subtitle: Text(loc.category, style: AppTextStyles.secondary),
