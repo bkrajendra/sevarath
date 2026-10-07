@@ -25,6 +25,9 @@ import { RolesGuard } from './guards/roles.guard';
   ],
   controllers: [AuthController],
   providers: [AuthService, FirebaseAdminProvider, FirebaseStrategy, JwtStrategy, RolesGuard],
-  exports: [AuthService, RolesGuard],
+  // JwtModule is exported so other modules that need to verify JWTs outside of Passport's
+  // HTTP-only AuthGuard flow (e.g. LocationsModule's WebSocket handshake auth) can inject
+  // JwtService directly, without duplicating the secret/TTL config from ConfigService.
+  exports: [AuthService, RolesGuard, JwtModule],
 })
 export class AuthModule {}

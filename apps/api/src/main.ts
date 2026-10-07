@@ -1,17 +1,26 @@
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
+import { ConfigService } from '@nestjs/config';
 import { Logger, ValidationPipe, VersioningType } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import type { NextFunction, Request, Response } from 'express';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { RedisIoAdapter } from './locations/redis-io.adapter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   // Permissive for now (internal/on-prem system, pre-production) - tighten to an
-  // explicit origin allowlist before any public-facing deployment.
+  // explicit origin allowlist before any public-facing deployment. The WebSocket gateway's
+  // own CORS config (location.gateway.ts) mirrors this same posture/caveat.
   app.enableCors({ origin: true, credentials: true });
+
+  // Redis-backed Socket.IO adapter (architecture.md §9.1/§9.2) so WebSocket events fan out
+  // correctly across multiple API pods, not just within a single process's in-memory rooms.
+  const redisIoAdapter = new RedisIoAdapter(app, app.get(ConfigService));
+  await redisIoAdapter.connectToRedis();
+  app.useWebSocketAdapter(redisIoAdapter);
 
   const accessLog = new Logger('HTTP');
   app.use((req: Request, res: Response, next: NextFunction) => {
