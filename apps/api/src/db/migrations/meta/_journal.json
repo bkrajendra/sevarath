@@ -15,6 +15,13 @@
       "when": 1791125870176,
       "tag": "0001_happy_silvermane",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791399638594,
+      "tag": "0002_bent_natasha_romanoff",
+      "breakpoints": true
     }
   ]
 }

@@ -5,4 +5,5 @@ allowBuilds:
   '@nestjs/core': true
   core-js: true
   esbuild: true
+  msgpackr-extract: true
   protobufjs: true
