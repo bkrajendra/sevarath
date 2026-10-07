@@ -9,6 +9,7 @@ import { DriversService } from './drivers.service';
 import { CreateDriverDto } from './dto/create-driver.dto';
 import { AssignVehicleDto } from './dto/assign-vehicle.dto';
 import { UpdateAvailabilityDto } from './dto/update-availability.dto';
+import { UpdateLocationDto } from './dto/update-location.dto';
 import { DriverResponseDto } from './dto/driver-response.dto';
 import type { Driver } from '../db/schema';
 
@@ -79,5 +80,15 @@ export class DriversController {
     @Body() dto: UpdateAvailabilityDto,
   ): Promise<Driver> {
     return this.driversService.updateAvailabilityForUser(currentUser.userId, dto.availability);
+  }
+
+  @Post('location')
+  @Roles('DRIVER')
+  @ApiOkResponse({ type: DriverResponseDto })
+  updateLocation(
+    @CurrentUser() currentUser: RequestUser,
+    @Body() dto: UpdateLocationDto,
+  ): Promise<Driver> {
+    return this.driversService.updateLocationForUser(currentUser.userId, dto.latitude, dto.longitude);
   }
 }

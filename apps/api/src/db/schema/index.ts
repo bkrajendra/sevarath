@@ -4,6 +4,7 @@ export * from './drivers';
 export * from './vehicles';
 export * from './rides';
 export * from './ride-events';
+export * from './ride-offers';
 export * from './campus-locations';
 export * from './campus-roads';
 export * from './campus-restricted-zones';

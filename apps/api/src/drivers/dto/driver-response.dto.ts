@@ -9,6 +9,9 @@ export class DriverResponseDto {
   @ApiProperty({ enum: ['OFFLINE', 'AVAILABLE', 'BUSY', 'ON_BREAK'] })
   availability!: 'OFFLINE' | 'AVAILABLE' | 'BUSY' | 'ON_BREAK';
   @ApiProperty({ nullable: true, type: String }) currentVehicleId!: string | null;
+  @ApiProperty({ nullable: true, type: Number }) currentLatitude!: number | null;
+  @ApiProperty({ nullable: true, type: Number }) currentLongitude!: number | null;
+  @ApiProperty({ nullable: true, type: Date }) locationUpdatedAt!: Date | null;
   @ApiProperty() createdAt!: Date;
   @ApiProperty() updatedAt!: Date;
 }

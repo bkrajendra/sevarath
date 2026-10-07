@@ -101,4 +101,26 @@ export class DriversService {
       .returning();
     return updated;
   }
+
+  /**
+   * Driver self-service: push a coarse lat/lng snapshot (open-items.md #2 - plain columns, no
+   * PostGIS/Redis live pipeline yet). Resolves the caller's own driver profile first, same
+   * pattern as updateAvailabilityForUser, so a driver can never push a location for someone
+   * else's profile.
+   */
+  async updateLocationForUser(userId: string, latitude: number, longitude: number): Promise<Driver> {
+    const driver = await this.findByUserId(userId);
+
+    const [updated] = await this.db
+      .update(drivers)
+      .set({
+        currentLatitude: latitude,
+        currentLongitude: longitude,
+        locationUpdatedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(drivers.id, driver.id))
+      .returning();
+    return updated;
+  }
 }

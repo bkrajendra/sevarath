@@ -40,6 +40,13 @@ export const rideStatusEnum = pgEnum('ride_status', [
   'NO_DRIVER_AVAILABLE',
 ]);
 
+export const rideOfferResultEnum = pgEnum('ride_offer_result', [
+  'PENDING',
+  'ACCEPTED',
+  'REJECTED',
+  'EXPIRED',
+]);
+
 export const campusLocationTypeEnum = pgEnum('campus_location_type', [
   'GATE',
   'BUILDING',

@@ -152,6 +152,14 @@ export class RidesService {
       return result;
     });
 
+    // Same in-process/outbox distinction as the 'ride.requested' emit in create() above: this
+    // lets the Dispatch module release the driver/vehicle back to AVAILABLE without RidesModule
+    // importing DispatchModule. Only fired when a driver was actually assigned - a ride
+    // cancelled before SEARCHING_DRIVER resolved has nothing to release.
+    if (updated.driverId) {
+      this.eventEmitter.emit('ride.cancelled', { rideId: id, driverId: updated.driverId });
+    }
+
     return updated;
   }
 
@@ -190,13 +198,20 @@ export class RidesService {
    */
   async complete(id: string, driverId: string): Promise<Ride> {
     await this.assertAssignedDriver(id, driverId);
-    return this.transitionAsDriver(
+    const updated = await this.transitionAsDriver(
       id,
       driverId,
       ['RIDE_STARTED', 'DRIVER_EN_ROUTE_TO_DESTINATION'],
       'COMPLETED',
       'RideCompleted',
     );
+
+    // Same in-process/outbox distinction as the 'ride.requested' emit in create() above - lets
+    // the Dispatch module release the driver/vehicle back to AVAILABLE without RidesModule
+    // importing DispatchModule.
+    this.eventEmitter.emit('ride.completed', { rideId: id, driverId });
+
+    return updated;
   }
 
   private async transitionAsDriver(
