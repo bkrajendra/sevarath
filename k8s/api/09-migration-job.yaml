@@ -1,0 +1,50 @@
+# One-off database schema migration, run via drizzle-orm's programmatic
+# migrator (apps/api/src/db/migrate.ts, compiled to dist/src/db/migrate.js by
+# `nest build`) rather than the drizzle-kit CLI, which is a devDependency not
+# present in the production image - see k8s/README.md "Database migrations".
+#
+# Safe to re-run: Drizzle's migration journal (the drizzle.__drizzle_migrations
+# table) only applies migrations it hasn't recorded yet, so running this Job
+# again after a new migration file lands just applies the new one.
+#
+# Usage: after a deploy that includes new migration files,
+#   kubectl -n sevarath delete job sevarath-api-db-migration --ignore-not-found
+#   kubectl apply -f k8s/api/09-migration-job.yaml
+#   kubectl -n sevarath wait --for=condition=complete job/sevarath-api-db-migration --timeout=120s
+#   kubectl -n sevarath logs job/sevarath-api-db-migration
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: sevarath-api-db-migration
+  namespace: sevarath
+  labels:
+    app: sevarath-api
+    component: migration
+spec:
+  backoffLimit: 2
+  template:
+    metadata:
+      labels:
+        app: sevarath-api
+        component: migration
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: db-migration
+          image: ghcr.io/bkrajendra/sevarath-api:latest
+          imagePullPolicy: Always
+          workingDir: /app/apps/api
+          command: ["node", "dist/src/db/migrate.js"]
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: sevarath-api-env
+                  key: DATABASE_URL
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "500m"

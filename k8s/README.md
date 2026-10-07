@@ -27,6 +27,7 @@ k8s/
     06-postgres-service.yaml
     07-redis-deployment.yaml     # AOF persistence, for BullMQ durability
     08-redis-service.yaml
+    09-migration-job.yaml        # one-off Job that applies pending Drizzle migrations
     examples/                    # secret templates - never apply these directly
   admin/
     01-deployment.yaml         # sevarath-admin (static Vite build behind nginx)
@@ -67,9 +68,31 @@ filled-in values.
 ## Database migrations
 
 Migrations are **not** baked into the API image or run automatically on pod
-start (the runtime image is prod-deps only; `drizzle-kit`/`tsx` are
-devDependencies). Run them from a machine with the full `apps/api`
-devDependencies installed, pointed at the cluster's Postgres:
+start. They also don't need to be - `apps/api/src/db/migrate.ts` uses
+drizzle-orm's own programmatic migrator (`drizzle-orm/node-postgres/migrator`),
+not the `drizzle-kit` CLI, so it has no devDependency on `drizzle-kit`/`tsx`
+and gets compiled into the normal production build at
+`dist/src/db/migrate.js` by `nest build` - it can run with plain `node`
+from the exact image already deployed. `k8s/api/09-migration-job.yaml` runs
+it as a one-off Job against the cluster's own Postgres, using the same
+`DATABASE_URL` secret key the API deployment already has:
+
+```bash
+kubectl -n sevarath delete job sevarath-api-db-migration --ignore-not-found
+kubectl apply -f k8s/api/09-migration-job.yaml
+kubectl -n sevarath wait --for=condition=complete job/sevarath-api-db-migration --timeout=120s
+kubectl -n sevarath logs job/sevarath-api-db-migration
+```
+
+Run this after every deploy that adds new migration files (Drizzle's
+migration journal only applies ones it hasn't recorded yet, so it's safe to
+re-run even when there's nothing new). `imagePullPolicy: Always` plus
+deleting the Job before re-applying ensures it always runs against the
+current `:latest` image rather than a stale completed-Job result Kubernetes
+would otherwise reuse.
+
+**Fallback**, if you need to run a migration from a machine with the full
+`apps/api` devDependencies installed instead:
 
 ```bash
 kubectl -n sevarath port-forward svc/sevarath-postgres 5433:5432
