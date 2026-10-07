@@ -1,6 +1,8 @@
 # SevaRath - Architecture & Technical Design
 
-> Back to [README](../README.md) · See also [Specification](./specification.md) · [Frontend Guidelines](./frontend-guidelines.md) · [Implementation Plan](./plan.md)
+> Back to [README](../README.md) · See also [Specification](./specification.md) · [Frontend Guidelines](./frontend-guidelines.md) · [Implementation Plan](./plan.md) · [Booking Architecture Spec](./sevarath-booking-architecture-spec.md)
+
+> **Terminology:** [sevarath-booking-architecture-spec.md](./sevarath-booking-architecture-spec.md) uses "booking" for what this document and the codebase call a **ride** (`rides` table, `RidesModule`). They are the same entity - read "booking" as "ride" wherever the two docs are cross-referenced.
 
 ## 1. Tech Stack
 
@@ -101,6 +103,9 @@ src/
 │   └── providers/
 ├── campus/
 ├── admin/
+├── events/
+│   ├── outbox/                  # outbox_events writer (same tx as the state change)
+│   └── publisher/               # polling worker, publishes to BullMQ/Redis - see §4.3
 └── common/
 ```
 
@@ -124,16 +129,72 @@ v1 algorithm (intentionally simple):
 7. On reject/timeout -> offer to next driver
 ```
 
-**Concurrency rule (hard requirement):** assignment must be atomic. Use a Redis lock (or a transactional conditional update) so that acceptance is a single "assign-if-still-searching" operation:
+**Concurrency rule (hard requirement):** assignment must be atomic. **Decided mechanism: a single transactional conditional `UPDATE`, not a Redis lock** - this keeps PostgreSQL the sole arbiter of acceptance and needs no distributed-lock infrastructure:
 
-```text
-if ride.status == SEARCHING_DRIVER:
-    assign driver; status = DRIVER_ASSIGNED
-else:
-    reject this acceptance
+```sql
+UPDATE rides
+SET driver_id = :driverId, vehicle_id = :vehicleId, status = 'DRIVER_ASSIGNED', accepted_at = now()
+WHERE id = :rideId AND status = 'SEARCHING_DRIVER';
+-- 1 row affected -> this driver won.
+-- 0 rows affected -> return RIDE_ALREADY_ASSIGNED; do not touch ride state.
 ```
 
-This check-and-set must happen server-side inside `assignment.service.ts`; it must never be inferred from client-submitted state.
+This check-and-set must happen server-side inside `assignment.service.ts`; it must never be inferred from client-submitted state. Do not rely on WebSocket delivery order to prevent double acceptance (see [sevarath-booking-architecture-spec.md §9](./sevarath-booking-architecture-spec.md)).
+
+**Per-driver offer tracking.** `rides.status = SEARCHING_DRIVER` covers the *whole* cascade across candidate drivers, but which individual driver currently holds the live offer - and whether their 15s window expired - needs its own record, not a `rides.status` value. Add a `ride_offers` table:
+
+```text
+ride_offers
+-----------
+id
+ride_id
+driver_id
+offered_at
+responded_at
+result            -- PENDING | ACCEPTED | REJECTED | EXPIRED
+```
+
+`dispatch.service.ts` inserts one row per offer, the driver app's accept/reject call updates it, and a scheduled timeout (BullMQ delayed job) marks it `EXPIRED` and triggers the next-driver offer. The assignment-winning `UPDATE` above is still what makes `ACCEPTED` authoritative; `ride_offers` only drives the notify-and-cascade sequencing (this is the `DRIVER_NOTIFIED` / `EXPIRED` detail from [sevarath-booking-architecture-spec.md §6](./sevarath-booking-architecture-spec.md)).
+
+### 4.3 Events & Transactional Outbox
+
+Reliable delivery of ride-lifecycle events (to the WebSocket gateway, push notifications, audit/metrics) uses the **Transactional Outbox** pattern, per [sevarath-booking-architecture-spec.md §12](./sevarath-booking-architecture-spec.md):
+
+```text
+outbox_events
+--------------
+id
+event_type        -- RideRequested, RideAssigned, RideCancelled, DriverArrived, RideStarted, RideCompleted, ...
+aggregate_type     -- 'ride'
+aggregate_id       -- ride.id
+payload            -- minimal JSON: ids + correlationId, not the full ride row
+created_at
+published_at
+retry_count
+last_error
+```
+
+The ride-state write and its `outbox_events` insert happen in the **same database transaction** as the state change (`rides.service.ts` / `assignment.service.ts`), so an event can never be "lost" relative to the state it describes, and can never be published for a transaction that rolled back.
+
+**This repo has no existing message broker** (`docker-compose.yml` only provisions Postgres+PostGIS and Redis - no ActiveMQ/RabbitMQ/Kafka). Per the booking spec's own fallback ("a PostgreSQL-backed worker/queue... if an additional broker is not justified"), the publisher is a small polling worker that reads unpublished `outbox_events` rows and hands them to the **existing BullMQ/Redis** queue, which `locations`/`notifications`/`realtime` modules already consume from. Keep the publisher behind an `EventPublisher` interface so a real broker can replace BullMQ later without touching `rides`/`dispatch`.
+
+```text
+outbox_events (unpublished)
+     |
+     v
+EventPublisher (polling worker)
+     |
+     v
+BullMQ (Redis)
+     |
+     +--> WebSocket Gateway  (ride.* events to user/driver)
+     +--> Notifications queue (push notifications)
+     |
+     v
+published_at = now()
+```
+
+Failed publishing increments `retry_count` / sets `last_error` and is retried; it never blocks the original ride-state transaction, which already committed.
 
 ## 5. Database Layer (Drizzle ORM)
 
@@ -142,6 +203,9 @@ This check-and-set must happen server-side inside `assignment.service.ts`; it mu
 * PostGIS types (geography/geometry columns) are modeled via Drizzle's `customType` for raw SQL geography columns, since Drizzle has no first-class PostGIS type - wrap `ST_*` calls in small helper query builders, not scattered raw SQL.
 * Core tables: `users, drivers, vehicles, rides, ride_events, campus_locations` - see [specification.md §7](./specification.md#7-domain-data-model) for field-level intent; exact column definitions live in the Drizzle schema files, which are the source of truth once implementation starts (do not duplicate column lists in docs).
 * `ride_events` is append-only and is the audit trail for every state transition - write it in the same transaction as the state change it records.
+* `ride_offers` (new, Phase 4) tracks the per-driver notify/accept/reject/expire cascade during `SEARCHING_DRIVER` - see [§4.2](#42-dispatch--matching).
+* `outbox_events` (new, Phase 4) backs reliable domain-event publishing - see [§4.3](#43-events--transactional-outbox).
+* `driver_locations` (optional, Phase 5) is **not** created by default - [specification.md §6](./specification.md#6-location--accuracy-rules) keeps current driver location in Redis only, with no permanent raw-GPS history. Only add this table if the location-retention policy ([plan.md Open Decisions](./plan.md#1-open-decisions)) decides a persisted history is operationally required (e.g. safety/incident review).
 
 ## 6. API Design & Versioning
 
@@ -199,6 +263,20 @@ driver.status
 
 ride.driver_location
 ```
+
+### 6.2 Idempotency
+
+Per [sevarath-booking-architecture-spec.md §17](./sevarath-booking-architecture-spec.md), mobile clients may retry a command after a dropped response without knowing if it already applied. The following commands accept a client-generated `Idempotency-Key` header:
+
+```text
+POST /api/v1/rides
+POST /api/v1/rides/:id/accept
+POST /api/v1/rides/:id/cancel
+POST /api/v1/rides/:id/start
+POST /api/v1/rides/:id/complete
+```
+
+Implementation: a unique constraint on `(user_or_driver_id, idempotency_key)` scoped per endpoint (e.g. a small `idempotency_keys` table storing the key, the resulting resource id, and the response status, with a TTL cleanup job), checked before the write and returning the original response on a replay instead of re-running the command. See [specification.md §11.1](./specification.md#111-idempotency) for the functional requirement.
 
 ## 7. Frontend Architecture
 
@@ -370,6 +448,8 @@ Self-hosted, open-source, deployed as its own set of Docker containers on the on
 * Structured JSON logging from day one.
 * Health endpoints: `GET /health`, `/health/ready`, `/health/live`.
 * Recommended metrics (Prometheus-style): `ride_requests_total`, `ride_completed_total`, `ride_cancelled_total`, `ride_assignment_duration_seconds`, `active_rides`, `available_drivers`, `driver_location_updates_total`, `websocket_connections`, `push_notifications_total`.
+* Outbox-specific metrics (added with Phase 4's Transactional Outbox, [§4.3](#43-events--transactional-outbox)): `outbox_pending_events`, `outbox_publish_failures_total`, `outbox_publish_latency_seconds`.
+* Every log line and metric tied to a ride carries `bookingId`/`rideId` and `correlationId` so a single ride can be traced end-to-end across the REST call, the outbox event, and the WebSocket delivery - see [sevarath-booking-architecture-spec.md §19](./sevarath-booking-architecture-spec.md).
 
 ## 11. Deployment
 

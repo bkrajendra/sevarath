@@ -1,5 +1,16 @@
 # SevaRath EV Cart Booking Architecture Specification
 
+> Back to [README](../README.md) · See also [Specification](./specification.md) · [Architecture & Design](./architecture.md) · [Implementation Plan](./plan.md)
+
+> **Reconciliation note (2026-10-07):** This document was written generically (e.g. it assumes an existing ActiveMQ/Artemis broker that this repo does not have) and uses "booking" vocabulary. It has been reconciled against the project's actual schema/code and the other three docs:
+>
+> - **"Booking" in this document = the existing `rides` entity/module** (not a new parallel concept). `BookingModule` → `RidesModule`, `booking.requested` → `ride.requested`, `bookings` table → `rides` table, etc. No rename of existing code is planned; read "booking" below as "ride" throughout.
+> - The **Transactional Outbox pattern**, **Idempotency-Key** requirement, and the **DRIVER_NOTIFIED/EXPIRED per-driver-offer** detail in this document were genuinely missing from [architecture.md](./architecture.md) / [plan.md](./plan.md) and have now been folded into them (architecture.md §4.3, §6.2; plan.md Phase 4).
+> - This repo has **no message broker** (`docker-compose.yml` only runs Postgres+PostGIS and Redis). Per §4's own fallback, the Outbox publisher uses the existing Redis/BullMQ, not ActiveMQ Artemis — see architecture.md §4.3.
+> - The ride state machine already implemented in `apps/api/src/db/schema/enums.ts` (`ride_status`) is richer than §6 below (it also has `SEARCHING_DRIVER`, `DRIVER_EN_ROUTE_TO_DESTINATION`, `NO_DRIVER_AVAILABLE`, split cancellation reasons). Keep the existing enum as authoritative; treat §6 here as the simplified acceptance-flow sub-case it already covers. The DRIVER_NOTIFIED/EXPIRED cascade per driver offer is tracked at a finer grain than `rides.status` — see the new `ride_offers` table in architecture.md §5.
+>
+> Phase numbering in §21 below is illustrative; the authoritative, currently-tracked phase plan is [plan.md](./plan.md).
+
 ## 1. Purpose
 
 Define the technical architecture and implementation direction for the

@@ -1,6 +1,6 @@
 # SevaRath - Functional & Non-Functional Specification
 
-> Back to [README](../README.md) · See also [Architecture & Design](./architecture.md) · [Implementation Plan](./plan.md)
+> Back to [README](../README.md) · See also [Architecture & Design](./architecture.md) · [Implementation Plan](./plan.md) · [Booking Architecture Spec](./sevarath-booking-architecture-spec.md)
 
 ## 1. Overview
 
@@ -177,3 +177,42 @@ Login → select pickup/destination → request EV → nearest available driver 
   → driver accepts → user sees driver + live position → driver arrives
   → ride starts → live tracking during ride → ride completes → appears in history
 ```
+
+## 11. Reliability Requirements
+
+These requirements come from [sevarath-booking-architecture-spec.md](./sevarath-booking-architecture-spec.md) and apply once Phase 4 (Booking & Dispatch) begins - see [architecture.md §4.3](./architecture.md#43-events--transactional-outbox) and [§6.2](./architecture.md#62-idempotency) for the implementation mechanism.
+
+### 11.1 Idempotency
+
+Clients (mobile, driver app) may retry a request after a timeout without knowing whether it succeeded server-side. The following commands must be idempotent via a client-supplied `Idempotency-Key` header:
+
+```text
+POST /api/v1/rides                  (create)
+POST /api/v1/rides/:id/accept
+POST /api/v1/rides/:id/cancel
+POST /api/v1/rides/:id/start
+POST /api/v1/rides/:id/complete
+```
+
+A retried request with the same key and same requesting user must return the original result, not create a duplicate ride or re-apply a transition.
+
+### 11.2 Failure Scenarios
+
+| Scenario | Required behavior |
+|---|---|
+| Driver loses network | Ride remains in Postgres; driver reconnects and `GET /api/v1/drivers/pending` (or equivalent) recovers any pending offer. |
+| User loses network | Ride continues server-side; user reconnects and `GET /api/v1/rides/:id` resynchronizes current state. |
+| WebSocket server restarts | Clients reconnect and resynchronize via REST; no state is assumed from the socket alone. |
+| Two drivers accept simultaneously | Exactly one atomic `UPDATE ... WHERE status = 'SEARCHING_DRIVER'` succeeds; the other receives `RIDE_ALREADY_ASSIGNED`. |
+| User submits the same ride request twice | `Idempotency-Key` prevents a duplicate ride row. |
+| Event/notification delivery fails | Ride state is already persisted; the outbox event remains unpublished and is retried - it is never lost. |
+
+### 11.3 Definition of Done (Booking & Dispatch, Phase 4)
+
+- A user can create a ride and it is persisted before any notification is attempted.
+- Only one driver can ever be assigned to a given ride (verified by a concurrency test, not just code review).
+- Ride state is authoritative in PostgreSQL; a dropped WebSocket connection never loses it.
+- Reconnection restores current ride state via REST.
+- Ride lifecycle events are published reliably via the Outbox (architecture.md §4.3), surviving a broker/worker outage.
+- Duplicate client requests (same `Idempotency-Key`) are handled safely for every command in §11.1.
+- Every ride state transition and the failure scenarios above have automated tests.
