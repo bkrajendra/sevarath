@@ -8,3 +8,4 @@ build/
 coverage/
 .turbo/
 docs/secrets/
+dump.rdb
