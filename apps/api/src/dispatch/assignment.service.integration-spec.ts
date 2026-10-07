@@ -1,9 +1,9 @@
 import 'dotenv/config';
-import { eq, inArray } from 'drizzle-orm';
+import { eq, inArray, like, or } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import * as schema from '../db/schema';
-import { drivers, rideEvents, rideOffers, rides, users, vehicles, type Ride } from '../db/schema';
+import { drivers, outboxEvents, rideEvents, rideOffers, rides, users, vehicles, type Ride } from '../db/schema';
 import { OutboxService } from '../events/outbox/outbox.service';
 import { RideTransitionConflictException } from '../rides/ride-state-machine';
 import { DriverMatcherService } from './driver-matcher.service';
@@ -31,7 +31,7 @@ describe('AssignmentService (integration)', () => {
   const pickup = { latitude: 1.0, longitude: 1.0 };
   const destination = { latitude: 1.01, longitude: 1.01 };
 
-  beforeAll(() => {
+  beforeAll(async () => {
     pool = new Pool({ connectionString: process.env.DATABASE_URL });
     db = drizzle(pool, { schema });
 
@@ -39,6 +39,21 @@ describe('AssignmentService (integration)', () => {
     const driverMatcher = new DriverMatcherService(db as any);
     dispatchService = new DispatchService(db as any, outboxService, driverMatcher, {} as any);
     assignmentService = new AssignmentService(db as any, outboxService, dispatchService);
+
+    // Root-cause fix for docs/open-items.md #17/#18: if a PREVIOUS run of this file was
+    // interrupted (SIGKILL/timeout/OOM) between seeding its fixtures and its own afterEach, the
+    // seeded rows never get deleted and persist in the shared local Postgres indefinitely. They
+    // stay AVAILABLE/ACTIVE with a frozen `location_updated_at`, so DriverMatcherService#
+    // findCandidates (whose staleness check is a wall-clock window, not tied to this suite's
+    // lifetime) keeps treating them as live candidates for up to LOCATION_STALENESS_WINDOW_MS
+    // after the crash. Because every test in this file always seeds at the exact same nominal
+    // offsets (0.01 / 0.05 degrees from `pickup`), such an orphan can land at the *exact same
+    // coordinates* as this run's own fixture, and the unscoped distance query's ORDER BY has no
+    // explicit tie-break - so on an exact tie, which row sorts first (the orphan or this run's
+    // own driver) is not guaranteed, occasionally handing the cascade's next offer to the orphan
+    // instead of the fixture the test is asserting on. Sweep away any such leftovers before this
+    // file seeds anything of its own, so a run is never affected by a previous one's crash.
+    await purgeOrphanedFixtures();
   });
 
   beforeEach(() => {
@@ -50,6 +65,10 @@ describe('AssignmentService (integration)', () => {
 
   afterEach(async () => {
     if (rideIds.length > 0) {
+      // outbox_events was missing from this cleanup before this task (not the cause of #17/#18,
+      // but accumulating unboundedly across runs all the same - accept()/reject() both call
+      // OutboxService#record keyed by rideId as aggregateId). Clean it up alongside the rest.
+      await db.delete(outboxEvents).where(inArray(outboxEvents.aggregateId, rideIds));
       await db.delete(rideEvents).where(inArray(rideEvents.rideId, rideIds));
       await db.delete(rideOffers).where(inArray(rideOffers.rideId, rideIds));
       await db.delete(rides).where(inArray(rides.id, rideIds));
@@ -67,8 +86,56 @@ describe('AssignmentService (integration)', () => {
   });
 
   afterAll(async () => {
+    // Belt-and-suspenders: also sweep after the suite finishes, so a crash on this run doesn't
+    // even get the 5-minute staleness grace period before the next run is affected.
+    await purgeOrphanedFixtures();
     await pool.end();
   });
+
+  /**
+   * Deletes any rows matching this file's own unique naming convention (`assign-%` user mobiles,
+   * `ADRV-%` driver codes, `ASSIGN-%` vehicle codes - not used anywhere else in the codebase),
+   * regardless of whether this run's own bookkeeping arrays (`userIds`/`vehicleIds`/`rideIds`)
+   * know about them. See the comment in `beforeAll` for why this exists.
+   */
+  async function purgeOrphanedFixtures() {
+    const staleUsers = await db.select({ id: users.id }).from(users).where(like(users.mobile, 'assign-%'));
+    const staleUserIds = staleUsers.map((u) => u.id);
+
+    const staleDrivers =
+      staleUserIds.length > 0
+        ? await db
+            .select({ id: drivers.id, vehicleId: drivers.currentVehicleId })
+            .from(drivers)
+            .where(inArray(drivers.userId, staleUserIds))
+        : [];
+    const staleDriverIds = staleDrivers.map((d) => d.id);
+
+    const rideConditions = [
+      staleUserIds.length > 0 ? inArray(rides.userId, staleUserIds) : undefined,
+      staleDriverIds.length > 0 ? inArray(rides.driverId, staleDriverIds) : undefined,
+    ].filter((c): c is NonNullable<typeof c> => c !== undefined);
+    const staleRides = rideConditions.length > 0
+      ? await db.select({ id: rides.id }).from(rides).where(or(...rideConditions))
+      : [];
+    const staleRideIds = staleRides.map((r) => r.id);
+
+    if (staleRideIds.length > 0) {
+      await db.delete(outboxEvents).where(inArray(outboxEvents.aggregateId, staleRideIds));
+      await db.delete(rideEvents).where(inArray(rideEvents.rideId, staleRideIds));
+      await db.delete(rideOffers).where(inArray(rideOffers.rideId, staleRideIds));
+      await db.delete(rides).where(inArray(rides.id, staleRideIds));
+    }
+    if (staleDriverIds.length > 0) {
+      await db.delete(drivers).where(inArray(drivers.id, staleDriverIds));
+    }
+    if (staleUserIds.length > 0) {
+      await db.delete(users).where(inArray(users.id, staleUserIds));
+    }
+    // Vehicles are matched by code directly (not just via a stale driver's currentVehicleId) in
+    // case a crash happened between creating the vehicle and linking/seeding its driver.
+    await db.delete(vehicles).where(like(vehicles.vehicleCode, 'ASSIGN-%'));
+  }
 
   async function seedDriver(label: string, offsetDegrees = 0.01) {
     const suffix = `${label}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -84,6 +151,13 @@ describe('AssignmentService (integration)', () => {
       .returning();
     vehicleIds.push(vehicle.id);
 
+    // Jitter defends against the exact-tie scenario described above: even if some *other* stale
+    // orphan (from a crash this run's own beforeAll purge couldn't have known about, e.g. one
+    // created after that purge ran by a genuinely concurrent process) happens to share this
+    // test's nominal offset, a sub-degree random jitter makes an exact coordinate collision
+    // (and therefore an unresolved ORDER BY tie) vanishingly unlikely, on top of the purge.
+    const jitter = (Math.random() - 0.5) * 1e-4;
+
     const [driver] = await db
       .insert(drivers)
       .values({
@@ -92,8 +166,8 @@ describe('AssignmentService (integration)', () => {
         status: 'ACTIVE',
         availability: 'AVAILABLE',
         currentVehicleId: vehicle.id,
-        currentLatitude: pickup.latitude + offsetDegrees,
-        currentLongitude: pickup.longitude,
+        currentLatitude: pickup.latitude + offsetDegrees + jitter,
+        currentLongitude: pickup.longitude + jitter,
         locationUpdatedAt: new Date(),
       })
       .returning();
@@ -232,6 +306,43 @@ describe('AssignmentService (integration)', () => {
     expect(current.status).toBe('SEARCHING_DRIVER');
 
     expect(fakeQueue.add).toHaveBeenCalled();
+  });
+
+  it('cascades through three candidates: two rejections in a row reach the third/farthest driver', async () => {
+    const rider = await seedRidingUser();
+    const ride = await seedSearchingRide(rider.id);
+    const { driver: first } = await seedDriver('cascade-1st', 0.01);
+    const { driver: second } = await seedDriver('cascade-2nd', 0.05);
+    const { driver: third } = await seedDriver('cascade-3rd', 0.1);
+    await seedPendingOffer(ride.id, first.id);
+
+    // Reject #1: nearest -> next-nearest should be offered.
+    await assignmentService.reject(ride.id, first.id);
+
+    let offers = await db.select().from(rideOffers).where(eq(rideOffers.rideId, ride.id));
+    expect(offers.find((o) => o.driverId === first.id)?.result).toBe('REJECTED');
+    const offerToSecond = offers.find((o) => o.driverId === second.id);
+    expect(offerToSecond).toBeDefined();
+    expect(offerToSecond?.result).toBe('PENDING');
+    expect(offers.find((o) => o.driverId === third.id)).toBeUndefined();
+
+    const [rideAfterFirstReject] = await db.select().from(rides).where(eq(rides.id, ride.id));
+    expect(rideAfterFirstReject.status).toBe('SEARCHING_DRIVER');
+
+    // Reject #2: second (now offered) rejects -> third/farthest should finally be offered.
+    await assignmentService.reject(ride.id, second.id);
+
+    offers = await db.select().from(rideOffers).where(eq(rideOffers.rideId, ride.id));
+    expect(offers.find((o) => o.driverId === first.id)?.result).toBe('REJECTED');
+    expect(offers.find((o) => o.driverId === second.id)?.result).toBe('REJECTED');
+    const offerToThird = offers.find((o) => o.driverId === third.id);
+    expect(offerToThird).toBeDefined();
+    expect(offerToThird?.result).toBe('PENDING');
+
+    const [rideAfterSecondReject] = await db.select().from(rides).where(eq(rides.id, ride.id));
+    expect(rideAfterSecondReject.status).toBe('SEARCHING_DRIVER');
+
+    expect(fakeQueue.add).toHaveBeenCalledTimes(2);
   });
 
   it('accept() throws NO_PENDING_OFFER when the driver has no pending offer for this ride', async () => {
