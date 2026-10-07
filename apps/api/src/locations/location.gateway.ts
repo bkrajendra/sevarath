@@ -9,12 +9,13 @@ import {
   WebSocketGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, desc, eq, inArray, notInArray } from 'drizzle-orm';
 import type { Server, Socket } from 'socket.io';
 import { DRIZZLE, type DrizzleDb } from '../db/drizzle.module';
 import { rides, type Ride } from '../db/schema';
 import { DriversService } from '../drivers/drivers.service';
 import type { RequestUser } from '../auth/types/jwt-payload.interface';
+import { RIDE_TRANSITIONS, type RideStatus } from '../rides/ride-state-machine';
 import { authenticateSocket } from './ws-jwt.guard';
 import { LocationCacheService } from './location-cache.service';
 
@@ -50,6 +51,59 @@ interface SocketData {
 export const DRIVER_LOCATION_PUSH_EVENT = 'driver.location';
 export const DRIVER_LOCATION_UPDATED_EVENT = 'DriverLocationUpdated';
 
+/**
+ * Connection-time ride-state snapshot, pushed to a socket the moment it finishes joining its
+ * rooms (specification.md §8's "sync on reconnect" / §11.2's "clients reconnect and
+ * resynchronize" - this is the WebSocket-side convenience on top of that guarantee, not a
+ * replacement for it: `GET /rides/:id`/`GET /rides/history` remain the authoritative REST
+ * fallback a client can always fall back to even if this push never arrives).
+ *
+ * Named distinctly from the `Ride*` transition-event names `events/consumers/
+ * ride-event-routing.ts` defines (`RideAssigned`, `RideStarted`, ...), for the same reason
+ * `DRIVER_LOCATION_UPDATED_EVENT` above didn't adopt that convention either (docs/open-items.md
+ * #25/#26): those names are durable domain *transition* events flowing through the outbox, one
+ * per state change, consumed exactly once each. `RideSync` is not a transition - it carries no
+ * `eventType`, has no `ride_events`/`outbox_events` row behind it, and can fire redundantly
+ * (e.g. a client that reconnects twice in a row gets it twice, each time reflecting whatever is
+ * current at that instant) or not at all (idle connection, nothing active). Reusing a `Ride*`
+ * name here would wrongly suggest it's one more entry in that same at-least-once transition
+ * stream, when it is really closer to a "catalog page" a client can cheaply re-request.
+ */
+export const RIDE_SYNC_EVENT = 'RideSync';
+
+/**
+ * Lightweight snapshot payload for `RIDE_SYNC_EVENT` - identifiers + status only, matching the
+ * "re-fetch full detail over REST if you need more" shape `DomainEventRealtimeConsumer`'s
+ * `Ride*` payloads already use, not the full Drizzle row verbatim.
+ */
+export interface RideSyncPayload {
+  rideId: string;
+  status: RideStatus;
+  driverId: string | null;
+  vehicleId: string | null;
+  pickupLatitude: number;
+  pickupLongitude: number;
+  pickupLocationName: string | null;
+  destinationLatitude: number;
+  destinationLongitude: number;
+  destinationLocationName: string | null;
+}
+
+function toRideSyncPayload(ride: Ride): RideSyncPayload {
+  return {
+    rideId: ride.id,
+    status: ride.status,
+    driverId: ride.driverId,
+    vehicleId: ride.vehicleId,
+    pickupLatitude: ride.pickupLatitude,
+    pickupLongitude: ride.pickupLongitude,
+    pickupLocationName: ride.pickupLocationName,
+    destinationLatitude: ride.destinationLatitude,
+    destinationLongitude: ride.destinationLongitude,
+    destinationLocationName: ride.destinationLocationName,
+  };
+}
+
 /** The ride statuses during which a driver is actively engaged with a rider (rides/ride-state-machine.ts). */
 const ACTIVE_RIDE_STATUSES: Ride['status'][] = [
   'DRIVER_ASSIGNED',
@@ -58,6 +112,17 @@ const ACTIVE_RIDE_STATUSES: Ride['status'][] = [
   'RIDE_STARTED',
   'DRIVER_EN_ROUTE_TO_DESTINATION',
 ];
+
+/**
+ * Terminal ride statuses, *derived* from `RIDE_TRANSITIONS` (rides/ride-state-machine.ts) rather
+ * than hardcoded as a second, independently-maintained list - a status is terminal exactly when
+ * it has no outgoing transitions. This yields `COMPLETED`/`CANCELLED_BY_USER`/
+ * `CANCELLED_BY_DRIVER`/`CANCELLED_BY_SYSTEM`/`NO_DRIVER_AVAILABLE` today, but will stay correct
+ * automatically if that table ever changes, instead of silently drifting out of sync with it.
+ */
+const TERMINAL_RIDE_STATUSES: RideStatus[] = (Object.keys(RIDE_TRANSITIONS) as RideStatus[]).filter(
+  (status) => RIDE_TRANSITIONS[status].length === 0,
+);
 
 /** Payload shape a driver's app sends on `driver.location` (specification.md §6's field list). */
 export interface DriverLocationPushPayload {
@@ -158,6 +223,19 @@ export class LocationGateway implements OnGatewayConnection, OnGatewayDisconnect
     this.logger.log(
       `WebSocket connected: socket=${client.id} userId=${user.userId} role=${user.role}`,
     );
+
+    // Connection-time ride sync (specification.md §8/§11.2 - see RIDE_SYNC_EVENT's doc comment
+    // above). Deliberately best-effort and last: a DB hiccup here must never make a client hang
+    // on connect or lose its already-joined rooms, so any failure is logged and swallowed, same
+    // pattern as the DRIVER-role room-join try/catch just above.
+    try {
+      await this.sendRideSync(user, (client.data as SocketData).driverId);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `Failed to send connection-time ${RIDE_SYNC_EVENT} to userId=${user.userId} (socket=${client.id}): ${message}`,
+      );
+    }
   }
 
   handleDisconnect(client: Socket): void {
@@ -262,6 +340,61 @@ export class LocationGateway implements OnGatewayConnection, OnGatewayDisconnect
       .from(rides)
       .where(and(eq(rides.driverId, driverId), inArray(rides.status, ACTIVE_RIDE_STATUSES)));
     return ride ?? null;
+  }
+
+  /**
+   * The rider's most recent non-terminal ride, if any - everything from `REQUESTED`/
+   * `SEARCHING_DRIVER` through `DRIVER_EN_ROUTE_TO_DESTINATION` (i.e. not yet one of
+   * `TERMINAL_RIDE_STATUSES`).
+   *
+   * The system does not currently enforce "at most one active ride per user" anywhere
+   * (docs/open-items.md) - if more than one non-terminal ride turns up for this user, that gap
+   * is logged here (not silently ignored) and the most recently *requested* one is used, since
+   * that is the one a reconnecting client is overwhelmingly likely to actually care about.
+   */
+  private async findMostRecentNonTerminalRideForUser(userId: string): Promise<Ride | null> {
+    const nonTerminalRides = await this.db
+      .select()
+      .from(rides)
+      .where(and(eq(rides.userId, userId), notInArray(rides.status, TERMINAL_RIDE_STATUSES)))
+      .orderBy(desc(rides.requestedAt));
+
+    if (nonTerminalRides.length > 1) {
+      this.logger.warn(
+        `User ${userId} has ${nonTerminalRides.length} non-terminal rides at once (expected at ` +
+          `most 1 - no DB/app-level constraint enforces this today, see docs/open-items.md); ` +
+          `sending RideSync for the most recently requested one (${nonTerminalRides[0].id}).`,
+      );
+    }
+
+    return nonTerminalRides[0] ?? null;
+  }
+
+  /**
+   * Sends this connection its current-ride snapshot, if it has one (silence otherwise - no
+   * "no active ride" push, consistent with how emitToUser/emitToDriver already treat an empty
+   * room elsewhere in this gateway). A USER-role connection is checked against its rides, a
+   * DRIVER-role connection (one that actually resolved a `drivers.id` above) against
+   * `findActiveRideForDriver` - the same helper `handleDriverLocation` already uses, not a
+   * second copy of "what counts as a driver's active ride".
+   */
+  private async sendRideSync(user: RequestUser, driverId: string | undefined): Promise<void> {
+    if (user.role === 'DRIVER') {
+      if (!driverId) {
+        // No matching driver profile was resolved above (already logged there) - nothing to sync.
+        return;
+      }
+      const ride = await this.findActiveRideForDriver(driverId);
+      if (ride) {
+        this.emitToDriver(driverId, RIDE_SYNC_EVENT, toRideSyncPayload(ride));
+      }
+      return;
+    }
+
+    const ride = await this.findMostRecentNonTerminalRideForUser(user.userId);
+    if (ride) {
+      this.emitToUser(user.userId, RIDE_SYNC_EVENT, toRideSyncPayload(ride));
+    }
   }
 
   /** Sends `event` with `payload` to every live connection for this user (rider or driver). */
