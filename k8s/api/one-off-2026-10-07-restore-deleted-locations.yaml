@@ -1,0 +1,39 @@
+# One-off restore - a bug in an earlier version of
+# one-off-2026-10-07-import-diamond-hall-locations.yaml left a stray
+# DELETE FROM campus_locations; in place when it should have been removed,
+# which deleted the two real rows created via the admin UI (Receipting,
+# Shakti Stamb) before inserting the 14 new ones. Restoring them here from
+# the exact values read back before the mistake.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: sevarath-campus-locations-restore
+  namespace: sevarath
+  labels:
+    app: sevarath-api
+    component: one-off-import
+spec:
+  backoffLimit: 1
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: restore
+          image: postgis/postgis:16-3.4
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: sevarath-api-env
+                  key: DATABASE_URL
+          command: ["sh", "-c"]
+          args:
+            - |
+              psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+              BEGIN;
+              INSERT INTO campus_locations (name, type, latitude, longitude, description) VALUES
+              ('Receipting', 'RECEPTION', 24.5297735, 72.7956465, 'Near PMTV oftice'),
+              ('Shakti Stamb', 'BUILDING', 24.5312038, 72.7956448, 'Shakti Stambh - Dadi guljar memorial');
+              COMMIT;
+              SELECT count(*) AS total_count FROM campus_locations;
+              SQL

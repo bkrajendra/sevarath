@@ -1,0 +1,63 @@
+# One-off data import (not part of normal deploy order, not meant to be
+# re-applied) - adds 14 real named locations within 500m of Diamond Hall
+# Shanti Van, Abu Road, sourced from Google Maps (name + exact coordinates
+# per place, since OSM data for this specific campus was too sparse to be
+# useful - see the conversation this was extracted in for the full list
+# and distances). Purely additive - alongside the 2 locations already
+# created through the admin UI (Receipting, Shakti Stamb), not replacing
+# them.
+#
+# Run once:
+#   kubectl apply -f k8s/api/one-off-2026-10-07-import-diamond-hall-locations.yaml
+#   kubectl -n sevarath wait --for=condition=complete job/sevarath-campus-locations-import --timeout=60s
+#   kubectl -n sevarath logs job/sevarath-campus-locations-import
+#   kubectl -n sevarath delete job sevarath-campus-locations-import
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: sevarath-campus-locations-import
+  namespace: sevarath
+  labels:
+    app: sevarath-api
+    component: one-off-import
+spec:
+  backoffLimit: 1
+  template:
+    metadata:
+      labels:
+        app: sevarath-api
+        component: one-off-import
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: import
+          image: postgis/postgis:16-3.4
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: sevarath-api-env
+                  key: DATABASE_URL
+          command: ["sh", "-c"]
+          args:
+            - |
+              psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+              BEGIN;
+              INSERT INTO campus_locations (name, type, latitude, longitude, description) VALUES
+              ('Diamond Hall Shanti Van', 'BUILDING', 24.5313075, 72.7947805, 'Conference Hall'),
+              ('Prajapita Brahma Kumaris Ishwariya Vishwa Vidyalaya', 'BUILDING', 24.531874, 72.795019, 'University'),
+              ('Nirman Parking I', 'PARKING', 24.5311951, 72.7940133, 'Parking'),
+              ('Ever Healthy Hospital', 'MEDICAL', 24.5302854, 72.7949448, 'Medical Wing'),
+              ('Parking Place', 'PARKING', 24.5309793, 72.7962205, 'Parking'),
+              ('Parking', 'PARKING', 24.5323427, 72.7959754, 'Parking'),
+              ('Shantivan Gate No 03', 'GATE', 24.5317369, 72.7930659, 'Campus Gate'),
+              ('Diamond Hall & Prakash Stambh', 'BUILDING', 24.5296833, 72.7940231, 'Monument & Hall'),
+              ('Shantivan Gate No 06', 'GATE', 24.5306169, 72.79699, 'Campus Gate'),
+              ('Parking Diamond Cottage', 'PARKING', 24.533201, 72.796139, 'Parking'),
+              ('Shantivan Gate No 02', 'GATE', 24.5289796, 72.795909, 'Campus Gate'),
+              ('Shantivan Gate No 01', 'GATE', 24.5315397, 72.7977126, 'Campus Gate'),
+              ('Parking Lot', 'PARKING', 24.5284925, 72.7951851, 'Parking'),
+              ('BrahmaKumaris Prem Niwas', 'RESIDENCE', 24.5285499, 72.7963762, 'Residence');
+              COMMIT;
+              SELECT count(*) AS imported_count FROM campus_locations;
+              SQL

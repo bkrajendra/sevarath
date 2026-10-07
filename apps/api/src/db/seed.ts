@@ -3,19 +3,85 @@ import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import { campusLocations, type NewCampusLocation } from './schema';
 
-// Same nine campus locations the Flutter app's mock data used, with real
-// coordinates in the Abu Road / Shantivan bbox already referenced elsewhere
-// in the app (e.g. apps/mobile lib/features/ride/confirm_ride_screen.dart).
+// Real named locations within 500m of Diamond Hall Shanti Van, Abu Road -
+// the actual campus this app is built for - sourced from Google Maps (name
+// + exact coordinates per place; OSM data for this specific campus was too
+// sparse to be useful). Replaces the earlier placeholder/approximate list.
 const locations: NewCampusLocation[] = [
-  { name: 'Main Gate', type: 'GATE', latitude: 24.4828, longitude: 72.782, description: 'Headquarters' },
-  { name: 'Reception', type: 'RECEPTION', latitude: 24.4832, longitude: 72.7825, description: 'Administration' },
-  { name: 'Shantivan', type: 'BUILDING', latitude: 24.485, longitude: 72.785, description: 'Meditation Complex' },
-  { name: 'Gyan Sarovar', type: 'OTHER', latitude: 24.4815, longitude: 72.7808, description: 'Lake Area' },
-  { name: 'Tapovan', type: 'RESIDENCE', latitude: 24.4841, longitude: 72.7838, description: 'Accommodation' },
-  { name: 'Dining Hall', type: 'DINING', latitude: 24.4836, longitude: 72.7816, description: 'Food Court' },
-  { name: 'Hospital', type: 'MEDICAL', latitude: 24.4822, longitude: 72.7831, description: 'Medical Services' },
-  { name: 'Parking Area', type: 'PARKING', latitude: 24.4826, longitude: 72.7812, description: 'EV Parking' },
-  { name: 'Om Shanti Bhawan', type: 'BUILDING', latitude: 24.4845, longitude: 72.7822, description: 'Conference Hall' },
+  {
+    name: 'Diamond Hall Shanti Van',
+    type: 'BUILDING',
+    latitude: 24.5313075,
+    longitude: 72.7947805,
+    description: 'Conference Hall',
+  },
+  {
+    name: 'Prajapita Brahma Kumaris Ishwariya Vishwa Vidyalaya',
+    type: 'BUILDING',
+    latitude: 24.531874,
+    longitude: 72.795019,
+    description: 'University',
+  },
+  { name: 'Nirman Parking I', type: 'PARKING', latitude: 24.5311951, longitude: 72.7940133, description: 'Parking' },
+  {
+    name: 'Ever Healthy Hospital',
+    type: 'MEDICAL',
+    latitude: 24.5302854,
+    longitude: 72.7949448,
+    description: 'Medical Wing',
+  },
+  { name: 'Parking Place', type: 'PARKING', latitude: 24.5309793, longitude: 72.7962205, description: 'Parking' },
+  { name: 'Parking', type: 'PARKING', latitude: 24.5323427, longitude: 72.7959754, description: 'Parking' },
+  {
+    name: 'Shantivan Gate No 03',
+    type: 'GATE',
+    latitude: 24.5317369,
+    longitude: 72.7930659,
+    description: 'Campus Gate',
+  },
+  {
+    name: 'Diamond Hall & Prakash Stambh',
+    type: 'BUILDING',
+    latitude: 24.5296833,
+    longitude: 72.7940231,
+    description: 'Monument & Hall',
+  },
+  {
+    name: 'Shantivan Gate No 06',
+    type: 'GATE',
+    latitude: 24.5306169,
+    longitude: 72.79699,
+    description: 'Campus Gate',
+  },
+  {
+    name: 'Parking Diamond Cottage',
+    type: 'PARKING',
+    latitude: 24.533201,
+    longitude: 72.796139,
+    description: 'Parking',
+  },
+  {
+    name: 'Shantivan Gate No 02',
+    type: 'GATE',
+    latitude: 24.5289796,
+    longitude: 72.795909,
+    description: 'Campus Gate',
+  },
+  {
+    name: 'Shantivan Gate No 01',
+    type: 'GATE',
+    latitude: 24.5315397,
+    longitude: 72.7977126,
+    description: 'Campus Gate',
+  },
+  { name: 'Parking Lot', type: 'PARKING', latitude: 24.5284925, longitude: 72.7951851, description: 'Parking' },
+  {
+    name: 'BrahmaKumaris Prem Niwas',
+    type: 'RESIDENCE',
+    latitude: 24.5285499,
+    longitude: 72.7963762,
+    description: 'Residence',
+  },
 ];
 
 async function main() {
