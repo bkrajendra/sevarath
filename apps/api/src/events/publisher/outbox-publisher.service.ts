@@ -5,7 +5,7 @@ import { Queue } from 'bullmq';
 import { asc, eq, isNull } from 'drizzle-orm';
 import { DRIZZLE, type DrizzleDb } from '../../db/drizzle.module';
 import { outboxEvents, type OutboxEvent } from '../../db/schema';
-import { DOMAIN_EVENTS_QUEUE } from '../outbox.constants';
+import { DOMAIN_EVENTS_QUEUE, NOTIFICATION_EVENTS_QUEUE } from '../outbox.constants';
 
 const POLL_INTERVAL_MS = 2000;
 const BATCH_SIZE = 20;
@@ -21,8 +21,23 @@ export interface DomainEventJob {
 }
 
 /**
- * Polls `outbox_events` for unpublished rows and hands each to the `domain-events`
- * BullMQ queue, marking it published on success. See architecture.md §4.3.
+ * Polls `outbox_events` for unpublished rows and hands each to *both* the `domain-events`
+ * BullMQ queue (WebSocket forwarding, Phase 5) and the `notification-events` BullMQ queue (push
+ * notifications, Phase 7), marking it published on success. See architecture.md §4.3.
+ *
+ * Fan-out/"both must succeed" decision (docs/open-items.md): a row is only marked `published_at`
+ * once BOTH enqueues succeed. architecture.md explicitly calls WebSocket delivery
+ * "best-effort", and push notifications are the other best-effort channel - this treats the
+ * pair as one logical publish of "this event, to every channel that wants it", rather than
+ * tracking per-channel publish state (which the current `outbox_events` schema has no column
+ * for anyway - `published_at` is a single timestamp). The tradeoff: if the first `queue.add`
+ * succeeds and the second throws, the whole row is retried (via the existing
+ * `retry_count`/`last_error` bookkeeping) and the first queue gets a *second*, duplicate job for
+ * the same row on the next poll. That's an acceptable cost here - both downstream consumers
+ * (WebSocket forwarding, push sends) are idempotent-ish in effect (at most a duplicate socket
+ * event or a duplicate push notification, never a duplicate state change), consistent with the
+ * "best-effort delivery" doctrine already governing both channels - rather than silently
+ * dropping an event from one channel just because the other succeeded.
  *
  * NOTE: the poll query below is a plain, non-locking `SELECT ... LIMIT`, not a
  * `SELECT ... FOR UPDATE SKIP LOCKED`. That's fine with exactly one publisher instance
@@ -36,6 +51,7 @@ export class OutboxPublisherService {
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDb,
     @InjectQueue(DOMAIN_EVENTS_QUEUE) private readonly queue: Queue,
+    @InjectQueue(NOTIFICATION_EVENTS_QUEUE) private readonly notificationQueue: Queue,
   ) {}
 
   @Interval(POLL_INTERVAL_MS)
@@ -65,7 +81,8 @@ export class OutboxPublisherService {
         occurredAt: row.createdAt.toISOString(),
       };
 
-      await this.queue.add(row.eventType, job);
+      // Both must succeed before this row is marked published - see class doc comment above.
+      await Promise.all([this.queue.add(row.eventType, job), this.notificationQueue.add(row.eventType, job)]);
 
       await this.db
         .update(outboxEvents)

@@ -47,6 +47,15 @@ export const rideOfferResultEnum = pgEnum('ride_offer_result', [
   'EXPIRED',
 ]);
 
+/**
+ * Phase 7 (Notifications): which push transport a registered device token uses. FCM bridges to
+ * APNs under the hood for iOS, so a single `ANDROID`/`IOS` platform tag (no separate APNs
+ * integration/certs) is enough to route the actual send - see
+ * `notifications/push-notification.consumer.ts`. No `WEB` value - this product has no web
+ * push consumer today, and adding an unused enum value would just invite dead branches.
+ */
+export const devicePlatformEnum = pgEnum('device_platform', ['ANDROID', 'IOS']);
+
 export const campusLocationTypeEnum = pgEnum('campus_location_type', [
   'GATE',
   'BUILDING',

@@ -4,7 +4,7 @@ import { LocationsModule } from '../locations/locations.module';
 import { OutboxService } from './outbox/outbox.service';
 import { OutboxPublisherService } from './publisher/outbox-publisher.service';
 import { DomainEventRealtimeConsumer } from './consumers/domain-event-realtime.consumer';
-import { DOMAIN_EVENTS_QUEUE } from './outbox.constants';
+import { DOMAIN_EVENTS_QUEUE, NOTIFICATION_EVENTS_QUEUE } from './outbox.constants';
 
 /**
  * Owns the outbox end to end: write (`OutboxService`), publish (`OutboxPublisherService`), and
@@ -17,9 +17,20 @@ import { DOMAIN_EVENTS_QUEUE } from './outbox.constants';
  * `dispatch.module.ts`, whose queue's producer and consumer are also both local to it, but
  * which re-registers its own queue defensively anyway - not needed here since nothing in this
  * module today requires that extra registration).
+ *
+ * Phase 7: also registers `NOTIFICATION_EVENTS_QUEUE` here, alongside `DOMAIN_EVENTS_QUEUE` -
+ * `OutboxPublisherService` (the only provider that enqueues onto it) lives in this module, same
+ * reasoning as the existing queue. The queue's actual consumer (`PushNotificationConsumer`)
+ * lives in `NotificationsModule` instead, which registers the *same* queue name again there (it
+ * must - BullMQ/Nest resolves `@InjectQueue`/`@Processor` against a registration local to each
+ * module's own DI graph) - same pattern `dispatch.module.ts` already uses for
+ * `RIDE_OFFER_TIMEOUT_QUEUE`, just split across two different queues' producer/consumer sides.
  */
 @Module({
-  imports: [BullModule.registerQueue({ name: DOMAIN_EVENTS_QUEUE }), LocationsModule],
+  imports: [
+    BullModule.registerQueue({ name: DOMAIN_EVENTS_QUEUE }, { name: NOTIFICATION_EVENTS_QUEUE }),
+    LocationsModule,
+  ],
   providers: [OutboxService, OutboxPublisherService, DomainEventRealtimeConsumer],
   exports: [OutboxService],
 })
