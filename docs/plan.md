@@ -11,14 +11,14 @@ Reconciled against the actual repo state, not just doc intent - verified by read
 | 1 - Foundation | **Done** | Auth (password + optional Firebase), JWT/RBAC guards, Swagger, structured logging base. |
 | 2 - Driver & Vehicle Management | **Done** | `drivers`/`vehicles` schema + controllers/services, availability enum, Admin app bootstrap with Drivers/Vehicles pages. |
 | 3 - Campus Map & Location Selection | **Mostly done** | Backend/infra verified live (campus data + Martin + Valhalla + `RoutingProvider`). Flutter UI flow fully built but still on mock ride data; driver-flavor screens and Android build flavors not started. See checklist below (unchanged from before this update). |
-| 4 - Booking & Dispatch | **Not started** | `apps/api/src/rides/rides.module.ts` and `dispatch/dispatch.module.ts` are empty 5-line scaffolds - no controller, service, or state machine code exists yet, despite the `rides`/`ride_events` DB schema already being defined. This is the current critical path. |
-| 5 - Real-Time Location | **Not started** | `locations/locations.module.ts` is an empty scaffold; no WebSocket gateway, no Redis location cache code. No `socket.io`/`ws` or `ioredis`/`bullmq` packages are installed yet in `apps/api/package.json`. |
+| 4 - Booking & Dispatch | **Done** | Full ride lifecycle, dispatch cascade, atomic accept, transactional outbox, and idempotency keys implemented and tested end-to-end (real HTTP, real Postgres/Redis) - see the Phase 4 section below and [docs/open-items.md](./open-items.md) for the handful of deliberately deferred gaps. This is now the current critical path's *base* for Phase 5, not the gap itself. |
+| 5 - Real-Time Location | **Not started - current critical path** | `locations/locations.module.ts` is still an empty scaffold - no WebSocket gateway, no Redis location cache code. `@nestjs/bullmq`/`bullmq` (Redis-backed) are now installed and in use (Phase 4's outbox publisher/offer-timeout queue), but nothing WebSocket-specific (`@nestjs/websockets`/`socket.io`) exists yet. Phase 4's `outbox_events` pipeline is ready to be consumed by the gateway this phase adds. |
 | 6 - Navigation | **Partially started** | Backend `GET /api/v1/maps/route` + Valhalla integration done (pulled forward into Phase 3). In-app turn-by-turn UI, voice guidance, off-route rerouting in Flutter: not started. |
 | 7 - Notifications | **Not started** | `notifications/notifications.module.ts` is an empty scaffold; no BullMQ wired up. |
 | 8 - Admin Operations | **Partially started** | Admin app has CRUD pages for Drivers/Vehicles/CampusLocations. `apps/api/src/admin/admin.module.ts` is an empty scaffold - no live-ops dashboard (active rides, counts) exists yet. |
 | 9 - Hardening | **Not started** | No metrics, no outbox, no idempotency keys, no load/failure-scenario tests yet. |
 
-**Bottom line:** everything that doesn't touch an actual ride is in good shape (auth, driver/vehicle/user management, campus map data, routing). Nothing that makes the app *do a ride* exists in code yet - the whole ride lifecycle, dispatch, real-time delivery, and notifications are greenfield from here. See §4 below for the reconciled next steps.
+**Bottom line:** the full booking core now works end-to-end - a user can request a ride, get matched to the nearest real driver, have it accepted, and ride it through to completion and history, all server-authoritative with reliable event publishing and safe retries. What's still greenfield: real-time delivery (no WebSocket gateway yet - clients would have to poll today), turn-by-turn navigation UI, push notifications, and the operational/hardening work. See §4 below for the reconciled next steps.
 
 ## 1. Open Decisions
 
@@ -81,20 +81,20 @@ Each phase lists its concrete deliverable - a phase isn't "done" until the deliv
 
 **Deliverable:** User can see the campus map (with custom campus roads/POIs) and select pickup/destination. *(Backend/infra side is done and verified live; the Flutter side - the actual deliverable - is next once Flutter tooling is set up.)*
 
-### Phase 4 - Booking & Dispatch `[NOT STARTED - current critical path]`
+### Phase 4 - Booking & Dispatch `[DONE]`
 
-`rides`/`ride_events` schema already exists; `rides.module.ts` and `dispatch.module.ts` are empty scaffolds with none of the below implemented yet.
+* [x] `rides` entity, ride state machine (server-authoritative - [specification.md §5](./specification.md#5-ride-state-machine)) - `rides/ride-state-machine.ts`'s `RIDE_TRANSITIONS` + `applyRideTransition`, one atomic conditional-`UPDATE` primitive every transition in the system goes through
+* [x] Nearest-available-driver matching - plain-SQL Haversine over a new `drivers.current_latitude/longitude` snapshot, **not** a PostGIS distance query (no PostGIS available - see [docs/open-items.md](./open-items.md) #1/#2; campus-geofence filtering is correspondingly skipped, #10)
+* [x] `ride_offers` table + per-driver notify/accept/reject/expire cascade, offer timeout as a BullMQ delayed job ([architecture.md §4.2](./architecture.md#42-dispatch--matching)) - `dispatch/dispatch.service.ts`, `dispatch/ride-offer-timeout.processor.ts`
+* [x] Atomic accept/assign via conditional `UPDATE ... WHERE status = 'SEARCHING_DRIVER'` (not a Redis lock) - `dispatch/assignment.service.ts`, extended with matching conditional claims on the driver/vehicle rows too (so the same driver can't win two concurrent rides), verified with real concurrency-race integration tests
+* [x] `outbox_events` table + transactional outbox writer, written in the same transaction as every ride-state change ([architecture.md §4.3](./architecture.md#43-events--transactional-outbox)) - `events/` module
+* [x] `Idempotency-Key` support on create/accept/cancel/start/complete ([architecture.md §6.2](./architecture.md#62-idempotency)) - `common/interceptors/idempotency.interceptor.ts`
+* [x] Accept/reject/cancel endpoints; `ride_events` audit writes
+* [x] Automated tests for every state transition and the concurrency/failure scenarios in [specification.md §11](./specification.md#11-reliability-requirements), including a full end-to-end lifecycle test through the real public API (`test/booking-lifecycle.e2e-spec.ts`)
 
-* `rides` entity, ride state machine (server-authoritative - [specification.md §5](./specification.md#5-ride-state-machine))
-* Nearest-available-driver matching (PostGIS distance query)
-* `ride_offers` table + per-driver notify/accept/reject/expire cascade, offer timeout as a BullMQ delayed job ([architecture.md §4.2](./architecture.md#42-dispatch--matching))
-* Atomic accept/assign via conditional `UPDATE ... WHERE status = 'SEARCHING_DRIVER'` (not a Redis lock - [architecture.md §4.2](./architecture.md#42-dispatch--matching))
-* `outbox_events` table + transactional outbox writer, written in the same transaction as every ride-state change ([architecture.md §4.3](./architecture.md#43-events--transactional-outbox))
-* `Idempotency-Key` support on create/accept/cancel/start/complete ([architecture.md §6.2](./architecture.md#62-idempotency))
-* Accept/reject/cancel endpoints; `ride_events` audit writes
-* Automated tests for every state transition and the concurrency/failure scenarios in [specification.md §11](./specification.md#11-reliability-requirements)
+**Deliverable - met:** Full request → match → accept loop works end-to-end: user requests, the real dispatch cascade offers the nearest driver, driver accepts, user sees the assignment, ride progresses through arrived/start/complete and appears in history - with reliable event publishing and safe retries built in from the start, not bolted on later.
 
-**Deliverable:** Full request → match → accept loop: user requests, nearest driver is offered the ride, driver accepts, user sees the assignment - with reliable event publishing and safe retries from day one, not bolted on later.
+**Known gaps, deliberately deferred (see [docs/open-items.md](./open-items.md) for full reasoning on each):** no campus-geofence filtering in matching (#1/#2/#10, needs PostGIS); driver-initiated cancellation is terminal rather than re-dispatching per specification.md §8's friendlier behavior (#7/#13); `idempotency_keys` rows have no TTL/cleanup job yet (#16); e2e test suites leak BullMQ/ioredis connections past `app.close()` (#19, also a real shutdown-path gap worth fixing before production). None of these block Phase 5.
 
 ### Phase 5 - Real-Time Location `[NOT STARTED]`
 
@@ -168,11 +168,11 @@ The **ride state machine, dispatch/assignment logic, and real-time location pipe
 
 ## 4. Immediate Next Steps
 
-Given §0, the next unit of work is Phase 4 end-to-end, in this order:
+Phase 4 is done (§0/§2 above). Given §0, the next unit of work is Phase 5 (Real-Time Location):
 
-1. `rides.service.ts` + `ride-state-machine.ts` implementing [specification.md §5](./specification.md#5-ride-state-machine)'s full transition table, with controllers wired into the already-empty `RidesModule`.
-2. `outbox_events` migration + outbox writer, so every state transition from step 1 lands an event in the same transaction, from the very first endpoint - not retrofitted later.
-3. `dispatch.service.ts` + `driver-matcher.service.ts` (PostGIS nearest-driver query) and `assignment.service.ts` (the atomic conditional `UPDATE`), plus the `ride_offers` migration and offer-timeout job.
-4. `Idempotency-Key` middleware/interceptor applied to the five mutating ride endpoints.
-5. Concurrency test: two simulated drivers accepting the same ride - exactly one must win.
-6. Only then start Phase 5 (WebSocket gateway) - it has a real outbox to consume once Phase 4 lands.
+1. WebSocket gateway (`locations/location.gateway.ts`, namespace `/ws` per [architecture.md §6.1](./architecture.md#61-websocket-events)) with JWT-authenticated connections, registering per-user/per-driver socket rooms so fan-out is scoped (never broadcast all driver locations to all users).
+2. A consumer for Phase 4's `domain-events` BullMQ queue (currently unconsumed - see [docs/open-items.md](./open-items.md) #3) that forwards each event to the right socket room - this is what finally makes `ride.*` events (requested/assigned/cancelled/etc.) push to clients in real time instead of requiring the polling (`GET /dispatch/offers/me`, repeated `GET /rides/:id`) every Phase 4 test had to use.
+3. Driver location push pipeline: Redis-backed current-location cache (`specification.md §6`), fed by the driver app over the WebSocket connection (not just the Phase 4 REST fallback `POST /drivers/location` - see [docs/open-items.md](./open-items.md) #2, which this phase should revisit: does dispatch matching move to reading the fresher Redis source instead of the DB snapshot?).
+4. REST-based state resync on reconnect (`specification.md §11.2`) - a client that missed WebSocket events while disconnected must be able to recover current state via the REST endpoints Phase 4 already built.
+5. Live tracking UI in the Flutter apps, consuming the new WebSocket events.
+6. Resolve the location-retention open decision (§1) before deciding whether a persisted `driver_locations` table is actually needed on top of Redis.
