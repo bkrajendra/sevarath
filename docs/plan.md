@@ -14,7 +14,7 @@ Reconciled against the actual repo state, not just doc intent - verified by read
 | 4 - Booking & Dispatch | **Done** | Full ride lifecycle, dispatch cascade, atomic accept, transactional outbox, and idempotency keys implemented and tested end-to-end (real HTTP, real Postgres/Redis) - see the Phase 4 section below and [docs/open-items.md](./open-items.md) for the handful of deliberately deferred gaps. This is now the current critical path's *base* for Phase 5, not the gap itself. |
 | 5 - Real-Time Location | **Backend done** | WebSocket gateway, durable-event forwarding, live GPS pipeline, and reconnect/resync are all implemented and tested end-to-end (real Postgres/Redis/WebSocket). The Flutter live-tracking UI is not started - see the Phase 5 section below. |
 | 6 - Navigation | **Partially started** | Backend `GET /api/v1/maps/route` + Valhalla integration done (pulled forward into Phase 3). In-app turn-by-turn UI, voice guidance, off-route rerouting in Flutter: not started. |
-| 7 - Notifications | **Not started** | `notifications/notifications.module.ts` is an empty scaffold; no BullMQ wired up. |
+| 7 - Notifications | **Backend done** | Device token registration + FCM push consumer implemented and tested (mocked Firebase - no real project configured here, so no push has been verified against a real device). See the Phase 7 section below. |
 | 8 - Admin Operations | **Partially started** | Admin app has CRUD pages for Drivers/Vehicles/CampusLocations. `apps/api/src/admin/admin.module.ts` is an empty scaffold - no live-ops dashboard (active rides, counts) exists yet. |
 | 9 - Hardening | **Not started** | No metrics, no outbox, no idempotency keys, no load/failure-scenario tests yet. |
 
@@ -119,12 +119,14 @@ Backend routing (`GET /api/v1/maps/route` + Valhalla) was pulled forward into Ph
 
 **Deliverable:** Driver gets full turn-by-turn guidance (visual + voice) to pickup and to destination, with automatic rerouting on deviation - see [specification.md §3.4](./specification.md#34-navigation--map-user--driver-apps) for the full feature list.
 
-### Phase 7 - Notifications `[NOT STARTED]`
+### Phase 7 - Notifications `[BACKEND DONE - unverified against a real device]`
 
-* BullMQ-backed notification queue, consuming from the Phase 4 outbox publisher
-* Push notifications (FCM/APNs) for background/killed-app states, covering: ride accepted, driver arriving/arrived, ride started/completed, cancellations
+* [x] BullMQ-backed notification queue, consuming from the Phase 4 outbox publisher - the outbox publisher now fans out to **two** queues (`domain-events` for Phase 5's WebSocket forwarding, `notification-events` for this phase), since a BullMQ queue is a work queue, not pub/sub - a second consumer on the same queue would have stolen jobs rather than duplicating them. See [docs/open-items.md](./open-items.md) #31.
+* [x] Push notifications (FCM only - not a separate APNs integration; FCM already bridges to APNs for iOS, see #34) for background/killed-app states, covering: ride accepted/assigned, driver arriving/arrived, ride started/completed, cancellations. Device token registration at `POST/DELETE /api/v1/notifications/device-tokens`. Push routing deliberately differs from the WS routing table where a push would be redundant noise (e.g. `RideAssigned` pushes only the rider, not the driver who just tapped accept) - see #32.
 
-**Deliverable:** Key ride events reach the user/driver even when the app isn't in the foreground.
+**Deliverable - met on the backend, unverified end-to-end:** every event in the list above reaches `admin.messaging().send()` with the right recipient/token when one is registered. **What's not verified:** no real push has reached, or can reach, a real device in this sandbox - there is no Firebase project configured here (see [docs/open-items.md](./open-items.md) #36). The Flutter-side "receive a push, deep-link into the right screen" half is also not started, same as Phase 5/6's Flutter gaps.
+
+**Known gaps/housekeeping (see [docs/open-items.md](./open-items.md)):** no real-device verification possible here (#36); `apps/api/jest.config.js` is now pinned to `maxWorkers: 1` because the growing pile of real-Postgres/Redis e2e suites across Phases 4/5/7 made default parallel test runs unreliable (#30/#37, fixed in review) - a real per-worker DB/Redis isolation fix is still the better long-term answer if the suite keeps growing.
 
 ### Phase 8 - Admin Operations `[PARTIALLY STARTED]`
 
@@ -171,9 +173,9 @@ The **ride state machine, dispatch/assignment logic, and real-time location pipe
 
 ## 4. Immediate Next Steps
 
-Phase 4 and Phase 5's backend are both done (§0/§2 above). Given §0, the next unit of work is one of:
+Phases 4, 5 (backend), and 7 (backend) are all done (§0/§2 above). Given §0, the next unit of work is one of:
 
-1. **Phase 5's remaining piece**: live tracking UI in the Flutter apps, consuming the WebSocket events (`Ride*` transitions, `DriverLocationUpdated`, `RideSync`) that now actually exist to consume. Requires Flutter tooling in whatever environment picks this up - not available in this sandbox (see [docs/open-items.md](./open-items.md) #1 for the same class of environment gap).
-2. **Phase 6 (Navigation)**: backend routing (`GET /api/v1/maps/route` + Valhalla) was already done in Phase 3; what's left is almost entirely Flutter UI (turn-by-turn, voice, rerouting) - same tooling dependency as above.
-3. **Phase 7 (Notifications)**: BullMQ-backed push notification queue, consuming the same `domain-events` pipeline Phase 5's realtime consumer already reads from - this is backend work in the same stack/conventions as Phases 4-5, and doesn't need Flutter tooling to build the server side (FCM/APNs device-token registration and the actual push send can be built and tested against the real BullMQ/outbox pipeline; only the client-side "receive a push" half needs a mobile app).
-4. **Housekeeping worth doing regardless of which phase comes next**: resolve the growing e2e test-isolation gap ([docs/open-items.md](./open-items.md) #12/#17/#18/#30) before adding many more real-DB e2e suites, and the BullMQ/ioredis shutdown leak (#19).
+1. **The Flutter-side halves of Phases 5/6/7**: live tracking UI, turn-by-turn navigation, and receiving/deep-linking push notifications. All need Flutter tooling, not available in this sandbox (see [docs/open-items.md](./open-items.md) #1 for the same class of environment gap) - a session with that tooling should pick these up.
+2. **Phase 8 (Admin Operations)**: the Admin **React** app already exists and runs (Drivers/Vehicles/CampusLocations pages) - no Flutter needed. What's missing is backend: `admin/admin.module.ts` is still an empty scaffold, so there's no live-ops dashboard API (active rides list, driver/vehicle availability counts, ride history/search) for that app to consume. Buildable in this sandbox.
+3. **Phase 9 (Hardening)**: metrics, more complete health checks, and the BullMQ/ioredis graceful-shutdown gap ([docs/open-items.md](./open-items.md) #19) - flagged as a real production concern, not just test noise, since the same leak would apply to a real shutdown signal. Also buildable here.
+4. **Housekeeping**: the e2e test-isolation fix landed this session (`maxWorkers: 1`, #30/#37) is a stopgap, not the long-term answer (#30's own suggestion: per-worker DB/Redis isolation) if the suite keeps growing through Phase 8/9's own new tests.
