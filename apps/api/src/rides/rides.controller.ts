@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  UseGuards,
+  UseInterceptors,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiCreatedResponse, ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -7,6 +16,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { RequestUser } from '../auth/types/jwt-payload.interface';
 import type { Ride } from '../db/schema';
 import { DriversService } from '../drivers/drivers.service';
+import { IdempotencyInterceptor } from '../common/interceptors/idempotency.interceptor';
 import { RidesService } from './rides.service';
 import { CreateRideDto } from './dto/create-ride.dto';
 import { CancelRideDto } from './dto/cancel-ride.dto';
@@ -24,6 +34,7 @@ export class RidesController {
 
   @Post()
   @Roles('USER')
+  @UseInterceptors(IdempotencyInterceptor)
   @ApiCreatedResponse({ type: RideResponseDto })
   create(@CurrentUser() currentUser: RequestUser, @Body() dto: CreateRideDto): Promise<Ride> {
     return this.ridesService.create(currentUser.userId, dto);
@@ -46,6 +57,7 @@ export class RidesController {
   }
 
   @Post(':id/cancel')
+  @UseInterceptors(IdempotencyInterceptor)
   @ApiOkResponse({ type: RideResponseDto })
   cancel(
     @Param('id', ParseUUIDPipe) id: string,
@@ -68,6 +80,7 @@ export class RidesController {
 
   @Post(':id/start')
   @Roles('DRIVER')
+  @UseInterceptors(IdempotencyInterceptor)
   @ApiOkResponse({ type: RideResponseDto })
   async start(
     @Param('id', ParseUUIDPipe) id: string,
@@ -79,6 +92,7 @@ export class RidesController {
 
   @Post(':id/complete')
   @Roles('DRIVER')
+  @UseInterceptors(IdempotencyInterceptor)
   @ApiOkResponse({ type: RideResponseDto })
   async complete(
     @Param('id', ParseUUIDPipe) id: string,

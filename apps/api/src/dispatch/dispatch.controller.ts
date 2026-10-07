@@ -1,4 +1,15 @@
-import { Controller, Get, HttpCode, HttpStatus, Inject, Param, ParseUUIDPipe, Post, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Inject,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  UseGuards,
+  UseInterceptors,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import { eq, and, desc } from 'drizzle-orm';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -10,6 +21,7 @@ import type { Ride } from '../db/schema';
 import { DRIZZLE, type DrizzleDb } from '../db/drizzle.module';
 import { rideOffers, rides } from '../db/schema';
 import { DriversService } from '../drivers/drivers.service';
+import { IdempotencyInterceptor } from '../common/interceptors/idempotency.interceptor';
 import { AssignmentService } from './assignment.service';
 
 /**
@@ -28,6 +40,7 @@ export class DispatchController {
 
   @Post(':id/accept')
   @Roles('DRIVER')
+  @UseInterceptors(IdempotencyInterceptor)
   @ApiOkResponse()
   async accept(
     @Param('id', ParseUUIDPipe) id: string,

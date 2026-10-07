@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { EventsModule } from '../events/events.module';
 import { DriversModule } from '../drivers/drivers.module';
+import { IdempotencyInterceptor } from '../common/interceptors/idempotency.interceptor';
 import { DriverMatcherService } from './driver-matcher.service';
 import { DispatchService } from './dispatch.service';
 import { AssignmentService } from './assignment.service';
@@ -16,7 +17,15 @@ import { RIDE_OFFER_TIMEOUT_QUEUE } from './dispatch.constants';
     DriversModule,
     BullModule.registerQueue({ name: RIDE_OFFER_TIMEOUT_QUEUE }),
   ],
-  providers: [DriverMatcherService, DispatchService, AssignmentService, RideOfferTimeoutProcessor],
+  // IdempotencyInterceptor registered here too (see rides.module.ts for why) so
+  // DispatchController's @UseInterceptors(IdempotencyInterceptor) on `accept` can resolve it.
+  providers: [
+    DriverMatcherService,
+    DispatchService,
+    AssignmentService,
+    RideOfferTimeoutProcessor,
+    IdempotencyInterceptor,
+  ],
   controllers: [DispatchController, DispatchOffersController],
 })
 export class DispatchModule {}
