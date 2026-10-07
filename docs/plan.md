@@ -12,7 +12,7 @@ Reconciled against the actual repo state, not just doc intent - verified by read
 | 2 - Driver & Vehicle Management | **Done** | `drivers`/`vehicles` schema + controllers/services, availability enum, Admin app bootstrap with Drivers/Vehicles pages. |
 | 3 - Campus Map & Location Selection | **Mostly done** | Backend/infra verified live (campus data + Martin + Valhalla + `RoutingProvider`). Flutter UI flow fully built but still on mock ride data; driver-flavor screens and Android build flavors not started. See checklist below (unchanged from before this update). |
 | 4 - Booking & Dispatch | **Done** | Full ride lifecycle, dispatch cascade, atomic accept, transactional outbox, and idempotency keys implemented and tested end-to-end (real HTTP, real Postgres/Redis) - see the Phase 4 section below and [docs/open-items.md](./open-items.md) for the handful of deliberately deferred gaps. This is now the current critical path's *base* for Phase 5, not the gap itself. |
-| 5 - Real-Time Location | **Not started - current critical path** | `locations/locations.module.ts` is still an empty scaffold - no WebSocket gateway, no Redis location cache code. `@nestjs/bullmq`/`bullmq` (Redis-backed) are now installed and in use (Phase 4's outbox publisher/offer-timeout queue), but nothing WebSocket-specific (`@nestjs/websockets`/`socket.io`) exists yet. Phase 4's `outbox_events` pipeline is ready to be consumed by the gateway this phase adds. |
+| 5 - Real-Time Location | **Backend done** | WebSocket gateway, durable-event forwarding, live GPS pipeline, and reconnect/resync are all implemented and tested end-to-end (real Postgres/Redis/WebSocket). The Flutter live-tracking UI is not started - see the Phase 5 section below. |
 | 6 - Navigation | **Partially started** | Backend `GET /api/v1/maps/route` + Valhalla integration done (pulled forward into Phase 3). In-app turn-by-turn UI, voice guidance, off-route rerouting in Flutter: not started. |
 | 7 - Notifications | **Not started** | `notifications/notifications.module.ts` is an empty scaffold; no BullMQ wired up. |
 | 8 - Admin Operations | **Partially started** | Admin app has CRUD pages for Drivers/Vehicles/CampusLocations. `apps/api/src/admin/admin.module.ts` is an empty scaffold - no live-ops dashboard (active rides, counts) exists yet. |
@@ -96,15 +96,18 @@ Each phase lists its concrete deliverable - a phase isn't "done" until the deliv
 
 **Known gaps, deliberately deferred (see [docs/open-items.md](./open-items.md) for full reasoning on each):** no campus-geofence filtering in matching (#1/#2/#10, needs PostGIS); driver-initiated cancellation is terminal rather than re-dispatching per specification.md §8's friendlier behavior (#7/#13); `idempotency_keys` rows have no TTL/cleanup job yet (#16); e2e test suites leak BullMQ/ioredis connections past `app.close()` (#19, also a real shutdown-path gap worth fixing before production). None of these block Phase 5.
 
-### Phase 5 - Real-Time Location `[NOT STARTED]`
+### Phase 5 - Real-Time Location `[BACKEND DONE - Flutter UI not started]`
 
-* Events module's outbox publisher ([architecture.md §4.3](./architecture.md#43-events--transactional-outbox)) feeding the WebSocket gateway, so ride-lifecycle events (not just location) go out over `/ws`
-* WebSocket gateway (`/ws`), Redis-backed Socket.IO adapter for multi-pod fan-out
-* Driver location push pipeline (Flutter → gateway → Redis → WebSocket → User app)
-* Live tracking UI in both Flutter apps
-* Resolve the location-retention open decision (§1) - only add a persisted `driver_locations` table if it's actually needed
+* [x] WebSocket gateway (`/ws`), JWT-authenticated handshake, per-user/per-driver room scoping, Redis-backed Socket.IO adapter for multi-pod fan-out - `locations/location.gateway.ts`, `locations/redis-io.adapter.ts`
+* [x] Events module's outbox publisher ([architecture.md §4.3](./architecture.md#43-events--transactional-outbox)) feeding the WebSocket gateway - `events/consumers/domain-event-realtime.consumer.ts` consumes `domain-events` and forwards `Ride*` transitions to the right room, per a named routing table (closes [docs/open-items.md](./open-items.md) #3)
+* [x] Driver location push pipeline (Flutter → gateway → Redis → WebSocket → User app) - `locations/location-cache.service.ts` (Redis, accuracy-filtered per [specification.md §6](./specification.md#6-location--accuracy-rules)) + `LocationGateway`'s `driver.location`/`DriverLocationUpdated` handler. Dispatch matching still reads the DB snapshot, not Redis - see [docs/open-items.md](./open-items.md) #26 for why a `GEOADD`-based rewrite would be needed to switch that, not a quick swap
+* [ ] Live tracking UI in both Flutter apps - **not started**, out of backend scope
+* Resolve the location-retention open decision (§1) - still open; Redis's 45s TTL cache is the only location persistence today, no `driver_locations` table added (none needed yet)
+* [x] REST-based resync on reconnect ([specification.md §11.2](./specification.md#112-failure-scenarios)) - verified end-to-end: a disconnected client's ride progresses correctly over REST alone, and a reconnecting socket gets a `RideSync` snapshot reflecting the caught-up state (`locations/location.gateway.ts`)
 
-**Deliverable:** Driver movement, and ride status changes from Phase 4, are visible to the assigned user in near real time, with REST-based resync on reconnect ([specification.md §11.2](./specification.md#112-failure-scenarios)).
+**Deliverable - met on the backend:** driver movement and ride-lifecycle events reach the assigned user in near real time over `/ws`, and a client that misses events while disconnected recovers correct state on reconnect, whether or not the sync push itself arrives. **Not met yet:** nothing renders this in the Flutter apps - that's the remaining work before this phase's deliverable is user-visible, not just API-complete.
+
+**Known gaps, deliberately deferred (see [docs/open-items.md](./open-items.md) for full reasoning):** no enforced one-active-ride-per-user constraint (#28); dispatch matching not switched to Redis (#26); e2e suites leak BullMQ/ioredis connections on shutdown (#19) and intermittently flake under full-suite parallelism due to shared-Postgres contention (#12/#17/#18/#30) - pre-existing, not Phase-5-specific, worth a systematic fix before adding many more e2e suites in later phases.
 
 ### Phase 6 - Navigation `[PARTIALLY STARTED]`
 
@@ -168,11 +171,9 @@ The **ride state machine, dispatch/assignment logic, and real-time location pipe
 
 ## 4. Immediate Next Steps
 
-Phase 4 is done (§0/§2 above). Given §0, the next unit of work is Phase 5 (Real-Time Location):
+Phase 4 and Phase 5's backend are both done (§0/§2 above). Given §0, the next unit of work is one of:
 
-1. WebSocket gateway (`locations/location.gateway.ts`, namespace `/ws` per [architecture.md §6.1](./architecture.md#61-websocket-events)) with JWT-authenticated connections, registering per-user/per-driver socket rooms so fan-out is scoped (never broadcast all driver locations to all users).
-2. A consumer for Phase 4's `domain-events` BullMQ queue (currently unconsumed - see [docs/open-items.md](./open-items.md) #3) that forwards each event to the right socket room - this is what finally makes `ride.*` events (requested/assigned/cancelled/etc.) push to clients in real time instead of requiring the polling (`GET /dispatch/offers/me`, repeated `GET /rides/:id`) every Phase 4 test had to use.
-3. Driver location push pipeline: Redis-backed current-location cache (`specification.md §6`), fed by the driver app over the WebSocket connection (not just the Phase 4 REST fallback `POST /drivers/location` - see [docs/open-items.md](./open-items.md) #2, which this phase should revisit: does dispatch matching move to reading the fresher Redis source instead of the DB snapshot?).
-4. REST-based state resync on reconnect (`specification.md §11.2`) - a client that missed WebSocket events while disconnected must be able to recover current state via the REST endpoints Phase 4 already built.
-5. Live tracking UI in the Flutter apps, consuming the new WebSocket events.
-6. Resolve the location-retention open decision (§1) before deciding whether a persisted `driver_locations` table is actually needed on top of Redis.
+1. **Phase 5's remaining piece**: live tracking UI in the Flutter apps, consuming the WebSocket events (`Ride*` transitions, `DriverLocationUpdated`, `RideSync`) that now actually exist to consume. Requires Flutter tooling in whatever environment picks this up - not available in this sandbox (see [docs/open-items.md](./open-items.md) #1 for the same class of environment gap).
+2. **Phase 6 (Navigation)**: backend routing (`GET /api/v1/maps/route` + Valhalla) was already done in Phase 3; what's left is almost entirely Flutter UI (turn-by-turn, voice, rerouting) - same tooling dependency as above.
+3. **Phase 7 (Notifications)**: BullMQ-backed push notification queue, consuming the same `domain-events` pipeline Phase 5's realtime consumer already reads from - this is backend work in the same stack/conventions as Phases 4-5, and doesn't need Flutter tooling to build the server side (FCM/APNs device-token registration and the actual push send can be built and tested against the real BullMQ/outbox pipeline; only the client-side "receive a push" half needs a mobile app).
+4. **Housekeeping worth doing regardless of which phase comes next**: resolve the growing e2e test-isolation gap ([docs/open-items.md](./open-items.md) #12/#17/#18/#30) before adding many more real-DB e2e suites, and the BullMQ/ioredis shutdown leak (#19).
