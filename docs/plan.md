@@ -15,7 +15,7 @@ Reconciled against the actual repo state, not just doc intent - verified by read
 | 5 - Real-Time Location | **Backend done** | WebSocket gateway, durable-event forwarding, live GPS pipeline, and reconnect/resync are all implemented and tested end-to-end (real Postgres/Redis/WebSocket). The Flutter live-tracking UI is not started - see the Phase 5 section below. |
 | 6 - Navigation | **Partially started** | Backend `GET /api/v1/maps/route` + Valhalla integration done (pulled forward into Phase 3). In-app turn-by-turn UI, voice guidance, off-route rerouting in Flutter: not started. |
 | 7 - Notifications | **Backend done** | Device token registration + FCM push consumer implemented and tested (mocked Firebase - no real project configured here, so no push has been verified against a real device). See the Phase 7 section below. |
-| 8 - Admin Operations | **Partially started** | Admin app has CRUD pages for Drivers/Vehicles/CampusLocations. `apps/api/src/admin/admin.module.ts` is an empty scaffold - no live-ops dashboard (active rides, counts) exists yet. |
+| 8 - Admin Operations | **Done** | Admin dashboard, users, and rides-search pages implemented and verified live in a browser. A password-hash leak in `/users` found and fixed along the way (#45). |
 | 9 - Hardening | **Not started** | No metrics, no outbox, no idempotency keys, no load/failure-scenario tests yet. |
 
 **Bottom line:** the full booking core now works end-to-end - a user can request a ride, get matched to the nearest real driver, have it accepted, and ride it through to completion and history, all server-authoritative with reliable event publishing and safe retries. What's still greenfield: real-time delivery (no WebSocket gateway yet - clients would have to poll today), turn-by-turn navigation UI, push notifications, and the operational/hardening work. See §4 below for the reconciled next steps.
@@ -128,14 +128,15 @@ Backend routing (`GET /api/v1/maps/route` + Valhalla) was pulled forward into Ph
 
 **Known gaps/housekeeping (see [docs/open-items.md](./open-items.md)):** no real-device verification possible here (#36); `apps/api/jest.config.js` is now pinned to `maxWorkers: 1` because the growing pile of real-Postgres/Redis e2e suites across Phases 4/5/7 made default parallel test runs unreliable (#30/#37, fixed in review) - a real per-worker DB/Redis isolation fix is still the better long-term answer if the suite keeps growing.
 
-### Phase 8 - Admin Operations `[PARTIALLY STARTED]`
+### Phase 8 - Admin Operations `[DONE]`
 
-Admin app already has Drivers/Vehicles/CampusLocations CRUD pages; `apps/api/src/admin` backend module is still an empty scaffold.
+* [x] Full Admin surface: users (`GET /api/v1/users`, ADMIN-only), active rides + ride history/search (`GET /api/v1/admin/rides`), drivers/vehicles/campus locations (already shipped in earlier phases)
+* [x] Operational dashboard - live counts (`GET /api/v1/admin/dashboard/summary`: vehicles by status, drivers by availability, active-ride count) and campus map overlay, scoped to **data, not a rendered map** (`GET /api/v1/admin/live-map` + a table in the Admin app - no map library/tile-server path exists for the Admin React app yet, see [docs/open-items.md](./open-items.md) #38/#41)
+* [x] Admin React pages: Dashboard (now the landing route), Users, Rides, all polling every 10s - built and verified live in a browser against the real API
 
-* Full Admin surface: users, active rides, ride history (drivers/vehicles/campus locations already shipped)
-* Operational dashboard (live counts + campus map overlay - [specification.md §9](./specification.md#9-operational-dashboard-admin))
+**Deliverable - met:** Operations team has a working live view (polling, not yet WebSocket-pushed) and historical audit trail/search.
 
-**Deliverable:** Operations team has a working live view and historical audit trail.
+**Known gaps (see [docs/open-items.md](./open-items.md)):** no rendered map (data table instead, #38/#41); dashboard/live-map poll rather than subscribe to `/ws` (#42); a real **security fix** landed in review - `GET /users/me`/`GET /users` had been leaking every user's bcrypt `passwordHash` since Phase 1, now fixed with a regression test (#45).
 
 ### Phase 9 - Hardening `[NOT STARTED]`
 
