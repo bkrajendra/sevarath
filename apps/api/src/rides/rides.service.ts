@@ -1,11 +1,23 @@
-import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { desc, eq } from 'drizzle-orm';
+import { and, desc, eq, notInArray } from 'drizzle-orm';
 import { DRIZZLE, DrizzleDb } from '../db/drizzle.module';
 import { drivers, rideEvents, rides, type Ride } from '../db/schema';
 import { OutboxService } from '../events/outbox/outbox.service';
 import type { RequestUser } from '../auth/types/jwt-payload.interface';
-import { applyRideTransition, CANCELLABLE_RIDE_STATUSES, canTransition } from './ride-state-machine';
+import {
+  applyRideTransition,
+  CANCELLABLE_RIDE_STATUSES,
+  canTransition,
+  TERMINAL_RIDE_STATUSES,
+} from './ride-state-machine';
 import type { CreateRideDto } from './dto/create-ride.dto';
 
 @Injectable()
@@ -20,8 +32,35 @@ export class RidesService {
    * Creates a ride (status REQUESTED), writes its first ride_events row + outbox event, then
    * immediately transitions it to SEARCHING_DRIVER (also audited/outboxed) - all in one
    * transaction, so the ride never observably sits at REQUESTED.
+   *
+   * Rejects with a 409 if `userId` already has a non-terminal ride (docs/open-items.md #28):
+   * nothing previously stopped a user ending up with two simultaneously-active rides. An
+   * application-level check here (rather than a DB partial-unique-index constraint) was the
+   * deliberate choice - it gives a clean, specific `ACTIVE_RIDE_ALREADY_EXISTS` error instead of
+   * a generic unique-violation, and this system has no other place a second ride could be
+   * created from (only this one endpoint ever inserts a `rides` row). This is a plain read
+   * before the transaction starts, so it narrows but does not fully close the window: two
+   * genuinely concurrent `POST /rides` calls for the same user (e.g. under two different
+   * `Idempotency-Key`s - the idempotency mechanism itself only dedupes a *retried* request, not
+   * two distinct ones) could both pass this check before either commits. Documented as an
+   * accepted, narrow residual race rather than solved outright - closing it completely would
+   * need the DB constraint this task chose not to add; see docs/open-items.md for the reasoning.
    */
   async create(userId: string, dto: CreateRideDto): Promise<Ride> {
+    const [existingActiveRide] = await this.db
+      .select({ id: rides.id, status: rides.status })
+      .from(rides)
+      .where(and(eq(rides.userId, userId), notInArray(rides.status, TERMINAL_RIDE_STATUSES)))
+      .limit(1);
+
+    if (existingActiveRide) {
+      throw new ConflictException({
+        code: 'ACTIVE_RIDE_ALREADY_EXISTS',
+        message: `You already have an active ride (${existingActiveRide.id}, status ${existingActiveRide.status}) - cancel or complete it before requesting a new one.`,
+        rideId: existingActiveRide.id,
+      });
+    }
+
     const ride = await this.db.transaction(async (tx) => {
       const [inserted] = await tx
         .insert(rides)

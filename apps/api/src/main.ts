@@ -11,6 +11,14 @@ import { RedisIoAdapter } from './locations/redis-io.adapter';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  // Wires a SIGTERM/SIGINT signal to actually call app.close() (see docs/open-items.md #19).
+  // Nothing else in this file ever calls close() itself - the process only ever stops via a
+  // shutdown signal - so without this, every provider's onApplicationShutdown hook (including
+  // @nestjs/bullmq's Queue providers closing their underlying ioredis connections, and
+  // db/drizzle.module.ts's PgPoolCloser closing the pg Pool) is simply never invoked, and the
+  // process would have to be killed outright instead of shutting down gracefully.
+  app.enableShutdownHooks();
+
   // Permissive for now (internal/on-prem system, pre-production) - tighten to an
   // explicit origin allowlist before any public-facing deployment. The WebSocket gateway's
   // own CORS config (location.gateway.ts) mirrors this same posture/caveat.

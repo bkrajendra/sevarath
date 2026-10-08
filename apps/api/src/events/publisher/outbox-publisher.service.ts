@@ -39,10 +39,16 @@ export interface DomainEventJob {
  * "best-effort delivery" doctrine already governing both channels - rather than silently
  * dropping an event from one channel just because the other succeeded.
  *
- * NOTE: the poll query below is a plain, non-locking `SELECT ... LIMIT`, not a
- * `SELECT ... FOR UPDATE SKIP LOCKED`. That's fine with exactly one publisher instance
- * (today's deployment), but it would double-publish rows if this service were ever
- * scaled to multiple replicas - see docs/open-items.md.
+ * The poll query runs inside a transaction with `SELECT ... FOR UPDATE SKIP LOCKED` (docs/
+ * open-items.md #4): a second, concurrent `pollAndPublish()` call - whether on the same process
+ * or a second replica - never selects a row this one already has locked, it just skips straight
+ * to the next unlocked one. The lock (and the transaction) is held for exactly as long as it
+ * takes to enqueue the row onto both BullMQ queues and mark it published, which is why
+ * `publishOne` takes the same `tx` the row was selected under rather than reusing `this.db` -
+ * holding the lock across a `db.update` on a *different* connection/transaction than the one
+ * that issued the `SELECT ... FOR UPDATE` would not actually serialize anything. Drizzle's
+ * query builder supports `.for('update', { skipLocked: true })` natively at the version pinned
+ * here (0.33.0) - no raw-SQL escape hatch needed.
  */
 @Injectable()
 export class OutboxPublisherService {
@@ -56,20 +62,30 @@ export class OutboxPublisherService {
 
   @Interval(POLL_INTERVAL_MS)
   async pollAndPublish(): Promise<void> {
-    const pending = await this.db
-      .select()
-      .from(outboxEvents)
-      .where(isNull(outboxEvents.publishedAt))
-      .orderBy(asc(outboxEvents.createdAt))
-      .limit(BATCH_SIZE);
+    await this.db.transaction(async (tx) => {
+      const pending = await tx
+        .select()
+        .from(outboxEvents)
+        .where(isNull(outboxEvents.publishedAt))
+        .orderBy(asc(outboxEvents.createdAt))
+        .limit(BATCH_SIZE)
+        .for('update', { skipLocked: true });
 
-    for (const row of pending) {
-      await this.publishOne(row);
-    }
+      for (const row of pending) {
+        await this.publishOne(row, tx);
+      }
+    });
   }
 
-  /** Enqueues one row; on success marks it published, on failure bumps retry bookkeeping. */
-  async publishOne(row: OutboxEvent): Promise<void> {
+  /**
+   * Enqueues one row; on success marks it published, on failure bumps retry bookkeeping.
+   *
+   * `tx` defaults to `this.db` so this remains callable with just a row (as the unit spec
+   * already does, and as any future one-off/manual republish would want) - `pollAndPublish`
+   * above always passes its own `FOR UPDATE SKIP LOCKED` transaction explicitly instead, since
+   * that's what makes the row-level lock actually mean something (see class doc comment).
+   */
+  async publishOne(row: OutboxEvent, tx: DrizzleDb = this.db): Promise<void> {
     try {
       const job: DomainEventJob = {
         eventId: row.id,
@@ -84,19 +100,16 @@ export class OutboxPublisherService {
       // Both must succeed before this row is marked published - see class doc comment above.
       await Promise.all([this.queue.add(row.eventType, job), this.notificationQueue.add(row.eventType, job)]);
 
-      await this.db
-        .update(outboxEvents)
-        .set({ publishedAt: new Date() })
-        .where(eq(outboxEvents.id, row.id));
+      await tx.update(outboxEvents).set({ publishedAt: new Date() }).where(eq(outboxEvents.id, row.id));
     } catch (error) {
-      await this.markFailed(row, error);
+      await this.markFailed(row, tx, error);
     }
   }
 
-  private async markFailed(row: OutboxEvent, error: unknown): Promise<void> {
+  private async markFailed(row: OutboxEvent, tx: DrizzleDb, error: unknown): Promise<void> {
     const message = error instanceof Error ? error.message : String(error);
     this.logger.warn(`Failed to publish outbox event ${row.id} (${row.eventType}): ${message}`);
-    await this.db
+    await tx
       .update(outboxEvents)
       .set({ retryCount: row.retryCount + 1, lastError: message })
       .where(eq(outboxEvents.id, row.id));

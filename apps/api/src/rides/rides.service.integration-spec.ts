@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { ForbiddenException } from '@nestjs/common';
+import { ConflictException, ForbiddenException } from '@nestjs/common';
 import { eq, inArray } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
@@ -130,8 +130,59 @@ describe('RidesService (integration)', () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
+  it('create() rejects a second ride for a user with an existing non-terminal ride (docs/open-items.md #28)', async () => {
+    const first = await service.create(riderId, createDto);
+    expect(first.status).toBe('SEARCHING_DRIVER');
+
+    await expect(service.create(riderId, createDto)).rejects.toBeInstanceOf(ConflictException);
+    await expect(service.create(riderId, createDto)).rejects.toMatchObject({
+      response: { code: 'ACTIVE_RIDE_ALREADY_EXISTS', rideId: first.id },
+    });
+
+    const rideRows = await db.select().from(rides).where(eq(rides.userId, riderId));
+    expect(rideRows).toHaveLength(1);
+  });
+
+  it('create() allows a new ride once the user\'s previous ride reaches a terminal status', async () => {
+    const first = await service.create(riderId, createDto);
+    await service.cancel(first.id, { userId: riderId, role: 'USER' });
+
+    const second = await service.create(riderId, createDto);
+    expect(second.id).not.toBe(first.id);
+    expect(second.status).toBe('SEARCHING_DRIVER');
+  });
+
+  it('create() rejects a second ride even when the first is still mid-dispatch (DRIVER_ASSIGNED, not just SEARCHING_DRIVER)', async () => {
+    const first = await service.create(riderId, createDto);
+    await db.update(rides).set({ status: 'DRIVER_ASSIGNED' }).where(eq(rides.id, first.id));
+
+    await expect(service.create(riderId, createDto)).rejects.toBeInstanceOf(ConflictException);
+
+    const rideRows = await db.select().from(rides).where(eq(rides.userId, riderId));
+    expect(rideRows).toHaveLength(1);
+  });
+
+  it('create() does not reject based on a DIFFERENT user\'s active ride', async () => {
+    const otherActive = await service.create(otherUserId, createDto);
+
+    const mine = await service.create(riderId, createDto);
+    expect(mine.status).toBe('SEARCHING_DRIVER');
+
+    // Cleanup: this test seeds a ride for otherUserId, which the shared afterEach/afterAll only
+    // clean up for riderId - clean it up here directly.
+    await service.cancel(otherActive.id, { userId: otherUserId, role: 'USER' });
+    await db.delete(rideEvents).where(eq(rideEvents.rideId, otherActive.id));
+    await db.delete(outboxEvents).where(eq(outboxEvents.aggregateId, otherActive.id));
+    await db.delete(rides).where(eq(rides.id, otherActive.id));
+  });
+
   it('findHistoryForUser() returns only that user\'s rides, newest first', async () => {
     const first = await service.create(riderId, createDto);
+    // Must cancel the first before creating a second - docs/open-items.md #28: a user may not
+    // have two simultaneously non-terminal rides. History still returns every ride regardless
+    // of status, so a cancelled ride proves the "all of this user's rides" guarantee just as
+    // well as two simultaneously-active ones would have.
+    await service.cancel(first.id, { userId: riderId, role: 'USER' });
     const second = await service.create(riderId, createDto);
 
     const history = await service.findHistoryForUser(riderId);

@@ -194,6 +194,35 @@ describe('Real-time ride events (e2e, real Postgres + Redis + WebSocket, real di
     });
   }
 
+  /**
+   * For asserting an event never arrives on `socket` during some later window, WITHOUT the
+   * long-lived dangling timer `waitFor(socket, event, 15000)` raced against a short one would
+   * leave behind (found while fixing docs/open-items.md #19): if the event never fires, `waitFor`
+   * never clears its own 15s timeout, which keeps Jest's process alive long after the test (and
+   * `app.close()` in `afterAll`) has finished - exactly the "Jest did not exit" symptom. This
+   * attaches a plain listener (no timer of its own - removed by `check()`, or in the worst case
+   * by the `afterEach` `socket.close()`/`removeAllListeners()` every test already does) and only
+   * the caller's own short explicit wait (see call sites) ever schedules a timer, which always
+   * fires and is done.
+   */
+  function neverEmits(socket: ClientSocket, event: string): { check: () => void } {
+    let received: unknown;
+    let got = false;
+    const handler = (value: unknown) => {
+      got = true;
+      received = value;
+    };
+    socket.on(event, handler);
+    return {
+      check: () => {
+        socket.off(event, handler);
+        if (got) {
+          throw new Error(`unexpectedly received "${event}": ${JSON.stringify(received)}`);
+        }
+      },
+    };
+  }
+
   /** Polls `fn` every `intervalMs` until it returns a truthy value or `timeoutMs` elapses. */
   async function pollUntil<T>(
     fn: () => Promise<T | null | undefined>,
@@ -224,7 +253,7 @@ describe('Real-time ride events (e2e, real Postgres + Redis + WebSocket, real di
       // RideDriverNotified: only the offered driver's room, never the rider's - OutboxPublisherService
       // polls every ~2s, so give this (and every later wait below) a generous timeout covering
       // several poll cycles plus the dispatch cascade's own async work.
-      const riderGotNotified = waitFor(riderSocket, 'RideDriverNotified', 15000);
+      const riderShouldNeverGetNotified = neverEmits(riderSocket, 'RideDriverNotified');
       const driverNotified = waitFor<{ rideId: string; driverId: string; status: string }>(
         driverSocket,
         'RideDriverNotified',
@@ -251,9 +280,8 @@ describe('Real-time ride events (e2e, real Postgres + Redis + WebSocket, real di
       expect(notified.status).toBe('SEARCHING_DRIVER');
 
       // Nobody else's room got it - specifically not the rider's.
-      await expect(
-        Promise.race([riderGotNotified, new Promise((resolve) => setTimeout(() => resolve('timeout'), 500))]),
-      ).resolves.toBe('timeout');
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      riderShouldNeverGetNotified.check();
 
       // RideAssigned: both the rider and the now-assigned driver.
       const riderAssigned = waitFor<{ rideId: string; driverId: string; vehicleId: string; status: string }>(
@@ -283,7 +311,7 @@ describe('Real-time ride events (e2e, real Postgres + Redis + WebSocket, real di
 
       // DriverArrived: the rider only, never the driver (they tapped the button themselves).
       const riderArrived = waitFor<{ rideId: string; status: string }>(riderSocket, 'DriverArrived', 15000);
-      const driverGotArrived = waitFor(driverSocket, 'DriverArrived', 15000);
+      const driverShouldNeverGetArrived = neverEmits(driverSocket, 'DriverArrived');
 
       await request(app.getHttpServer())
         .post(`/api/v1/rides/${rideId}/arrived`)
@@ -293,9 +321,8 @@ describe('Real-time ride events (e2e, real Postgres + Redis + WebSocket, real di
       const arrivedEvt = await riderArrived;
       expect(arrivedEvt.rideId).toBe(rideId);
       expect(arrivedEvt.status).toBe('DRIVER_ARRIVED');
-      await expect(
-        Promise.race([driverGotArrived, new Promise((resolve) => setTimeout(() => resolve('timeout'), 500))]),
-      ).resolves.toBe('timeout');
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      driverShouldNeverGetArrived.check();
 
       // RideStarted / RideCompleted: the rider only.
       const riderStarted = waitFor<{ rideId: string; status: string }>(riderSocket, 'RideStarted', 15000);

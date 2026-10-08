@@ -62,6 +62,20 @@ export function canTransition(from: RideStatus, to: RideStatus): boolean {
   return RIDE_TRANSITIONS[from]?.includes(to) ?? false;
 }
 
+/**
+ * Every status with no outgoing transition in `RIDE_TRANSITIONS` - i.e. a ride in one of these
+ * statuses is done and will never change again. Derived from the table itself (not a second,
+ * independently-maintained list) so it can never drift from it - the same technique
+ * `locations/location.gateway.ts`'s own (module-local, non-exported) `TERMINAL_RIDE_STATUSES`
+ * and `admin/admin.service.ts`'s own copy already use (docs/open-items.md #29) - exported here
+ * for the first time (docs/open-items.md #28) so `RidesService#create`'s one-active-ride check
+ * can reuse it too, rather than adding a fourth copy. The two existing module-local copies are
+ * left as-is (not refactored to import this one) - out of scope for this change.
+ */
+export const TERMINAL_RIDE_STATUSES: RideStatus[] = (Object.keys(RIDE_TRANSITIONS) as RideStatus[]).filter(
+  (status) => RIDE_TRANSITIONS[status].length === 0,
+);
+
 /** The set of statuses from which a ride may still be cancelled (by user or driver). */
 export const CANCELLABLE_RIDE_STATUSES: RideStatus[] = [
   'REQUESTED',

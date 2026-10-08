@@ -17,6 +17,7 @@ import { MapsModule } from './maps/maps.module';
 import { CampusModule } from './campus/campus.module';
 import { AdminModule } from './admin/admin.module';
 import { EventsModule } from './events/events.module';
+import { CommonModule } from './common/common.module';
 
 @Module({
   imports: [
@@ -49,6 +50,7 @@ import { EventsModule } from './events/events.module';
     CampusModule,
     AdminModule,
     EventsModule,
+    CommonModule,
   ],
 })
 export class AppModule {}
