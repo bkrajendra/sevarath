@@ -20,6 +20,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["AuthController_register"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/login/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["AuthController_loginWithPassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/refresh": {
         parameters: {
             query?: never;
@@ -44,6 +76,22 @@ export interface paths {
             cookie?: never;
         };
         get: operations["UsersController_me"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["UsersController_findAll"];
         put?: never;
         post?: never;
         delete?: never;
@@ -212,6 +260,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/drivers/location": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["DriversController_updateLocation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/vehicles": {
         parameters: {
             query?: never;
@@ -258,6 +322,198 @@ export interface paths {
         options?: never;
         head?: never;
         patch: operations["VehiclesController_updateStatus"];
+        trace?: never;
+    };
+    "/api/v1/rides": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["RidesController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rides/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["RidesController_findHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rides/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["RidesController_findOne"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rides/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["RidesController_cancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rides/{id}/arrived": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["RidesController_markArrived"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rides/{id}/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["RidesController_start"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rides/{id}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["RidesController_complete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rides/{id}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["DispatchController_accept"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rides/{id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["DispatchController_reject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dispatch/offers/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["DispatchOffersController_myPendingOffer"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/device-tokens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["DeviceTokensController_register"];
+        delete: operations["DeviceTokensController_unregister"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/maps/route": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["MapsController_getRoute"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/campus/locations": {
@@ -356,6 +612,54 @@ export interface paths {
         patch: operations["CampusRestrictedZonesController_setActive"];
         trace?: never;
     };
+    "/api/v1/admin/dashboard/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["AdminController_getDashboardSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/rides": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["AdminController_listRides"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/live-map": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["AdminController_getLiveMap"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -369,6 +673,26 @@ export interface components {
             refreshToken: string;
             role: string;
             userId: string;
+        };
+        RegisterDto: {
+            /** @example Jane Doe */
+            name: string;
+            /**
+             * @description E.164-ish mobile number - the primary account identifier
+             * @example +911234567890
+             */
+            mobile: string;
+            /** @example jane@example.com */
+            email?: string;
+            password: string;
+        };
+        PasswordLoginDto: {
+            /**
+             * @description Mobile number or email
+             * @example +911234567890 or jane@example.com
+             */
+            identifier: string;
+            password: string;
         };
         RefreshDto: {
             /** @description Refresh token issued at login */
@@ -388,6 +712,10 @@ export interface components {
             /** Format: date-time */
             updatedAt: string;
         };
+        UsersListResponseDto: {
+            items: components["schemas"]["UserResponseDto"][];
+            total: number;
+        };
         CreateDriverDto: {
             /** @description Existing user id (must already exist, e.g. via OTP self-registration) */
             userId: string;
@@ -403,6 +731,10 @@ export interface components {
             /** @enum {string} */
             availability: "OFFLINE" | "AVAILABLE" | "BUSY" | "ON_BREAK";
             currentVehicleId: string | null;
+            currentLatitude: number | null;
+            currentLongitude: number | null;
+            /** Format: date-time */
+            locationUpdatedAt: string | null;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -414,6 +746,10 @@ export interface components {
         UpdateAvailabilityDto: {
             /** @enum {string} */
             availability: "OFFLINE" | "AVAILABLE" | "ON_BREAK";
+        };
+        UpdateLocationDto: {
+            latitude: number;
+            longitude: number;
         };
         CreateVehicleDto: {
             /** @example EV-01 */
@@ -440,6 +776,87 @@ export interface components {
         UpdateVehicleStatusDto: {
             /** @enum {string} */
             status: "AVAILABLE" | "IN_SERVICE" | "MAINTENANCE" | "INACTIVE";
+        };
+        CreateRideDto: {
+            pickupLatitude: number;
+            pickupLongitude: number;
+            pickupLocationName?: string;
+            destinationLatitude: number;
+            destinationLongitude: number;
+            destinationLocationName?: string;
+        };
+        RideResponseDto: {
+            id: string;
+            userId: string;
+            driverId: string | null;
+            vehicleId: string | null;
+            pickupLatitude: number;
+            pickupLongitude: number;
+            pickupLocationName: string | null;
+            destinationLatitude: number;
+            destinationLongitude: number;
+            destinationLocationName: string | null;
+            /** @enum {string} */
+            status: "REQUESTED" | "SEARCHING_DRIVER" | "DRIVER_ASSIGNED" | "DRIVER_EN_ROUTE_TO_PICKUP" | "DRIVER_ARRIVED" | "RIDE_STARTED" | "DRIVER_EN_ROUTE_TO_DESTINATION" | "COMPLETED" | "CANCELLED_BY_USER" | "CANCELLED_BY_DRIVER" | "CANCELLED_BY_SYSTEM" | "NO_DRIVER_AVAILABLE";
+            /** Format: date-time */
+            requestedAt: string;
+            /** Format: date-time */
+            acceptedAt: string | null;
+            /** Format: date-time */
+            driverArrivedAt: string | null;
+            /** Format: date-time */
+            startedAt: string | null;
+            /** Format: date-time */
+            completedAt: string | null;
+            /** Format: date-time */
+            cancelledAt: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        CancelRideDto: {
+            reason?: string;
+        };
+        RegisterDeviceTokenDto: {
+            /** @description The FCM registration token for this device. */
+            token: string;
+            /** @enum {string} */
+            platform: "ANDROID" | "IOS";
+        };
+        DeviceTokenResponseDto: {
+            id: string;
+            userId: string;
+            token: string;
+            /** @enum {string} */
+            platform: "ANDROID" | "IOS";
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        UnregisterDeviceTokenDto: {
+            /** @description The FCM registration token to remove for the calling user. */
+            token: string;
+        };
+        RouteManeuverResponseDto: {
+            instruction: string;
+            verbalPreTransitionInstruction?: string;
+            verbalTransitionAlertInstruction?: string;
+            verbalPostTransitionInstruction?: string;
+            length: number;
+            time: number;
+            beginShapeIndex: number;
+            endShapeIndex: number;
+        };
+        RouteResponseDto: {
+            /** @description Encoded polyline, 1e6 precision (Valhalla default) */
+            shape: string;
+            /** @description Kilometers */
+            length: number;
+            /** @description Seconds */
+            time: number;
+            maneuvers: components["schemas"]["RouteManeuverResponseDto"][];
         };
         CreateCampusLocationDto: {
             /** @example Main Gate */
@@ -520,6 +937,39 @@ export interface components {
             /** Format: date-time */
             updatedAt: string;
         };
+        VehicleStatusCountsDto: {
+            AVAILABLE: number;
+            IN_SERVICE: number;
+            MAINTENANCE: number;
+            INACTIVE: number;
+        };
+        DriverAvailabilityCountsDto: {
+            OFFLINE: number;
+            AVAILABLE: number;
+            BUSY: number;
+            ON_BREAK: number;
+        };
+        DashboardSummaryResponseDto: {
+            vehiclesByStatus: components["schemas"]["VehicleStatusCountsDto"];
+            driversByAvailability: components["schemas"]["DriverAvailabilityCountsDto"];
+            activeRidesCount: number;
+        };
+        AdminRidesListResponseDto: {
+            items: components["schemas"]["RideResponseDto"][];
+            total: number;
+        };
+        LiveMapDriverResponseDto: {
+            driverId: string;
+            driverCode: string;
+            /** @enum {string} */
+            availability: "OFFLINE" | "AVAILABLE" | "BUSY" | "ON_BREAK";
+            latitude: number;
+            longitude: number;
+            /** Format: date-time */
+            locationUpdatedAt: string | null;
+            activeRideId: string | null;
+            activeRideStatus: string | null;
+        };
     };
     responses: never;
     parameters: never;
@@ -539,6 +989,52 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["LoginDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TokenResponseDto"];
+                };
+            };
+        };
+    };
+    AuthController_register: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegisterDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TokenResponseDto"];
+                };
+            };
+        };
+    };
+    AuthController_loginWithPassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordLoginDto"];
             };
         };
         responses: {
@@ -590,6 +1086,31 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UserResponseDto"];
+                };
+            };
+        };
+    };
+    UsersController_findAll: {
+        parameters: {
+            query?: {
+                role?: "USER" | "DRIVER" | "ADMIN" | "OPERATOR";
+                search?: string;
+                /** @description Clamped to [1, 200]. */
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsersListResponseDto"];
                 };
             };
         };
@@ -817,6 +1338,29 @@ export interface operations {
             };
         };
     };
+    DriversController_updateLocation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateLocationDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DriverResponseDto"];
+                };
+            };
+        };
+    };
     VehiclesController_findAll: {
         parameters: {
             query?: never;
@@ -901,6 +1445,280 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VehicleResponseDto"];
+                };
+            };
+        };
+    };
+    RidesController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateRideDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RideResponseDto"];
+                };
+            };
+        };
+    };
+    RidesController_findHistory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RideResponseDto"][];
+                };
+            };
+        };
+    };
+    RidesController_findOne: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RideResponseDto"];
+                };
+            };
+        };
+    };
+    RidesController_cancel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CancelRideDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RideResponseDto"];
+                };
+            };
+        };
+    };
+    RidesController_markArrived: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RideResponseDto"];
+                };
+            };
+        };
+    };
+    RidesController_start: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RideResponseDto"];
+                };
+            };
+        };
+    };
+    RidesController_complete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RideResponseDto"];
+                };
+            };
+        };
+    };
+    DispatchController_accept: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DispatchController_reject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DispatchOffersController_myPendingOffer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    DeviceTokensController_register: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegisterDeviceTokenDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeviceTokenResponseDto"];
+                };
+            };
+        };
+    };
+    DeviceTokensController_unregister: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UnregisterDeviceTokenDto"];
+            };
+        };
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    MapsController_getRoute: {
+        parameters: {
+            query: {
+                originLat: number;
+                originLng: number;
+                destinationLat: number;
+                destinationLng: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RouteResponseDto"];
                 };
             };
         };
@@ -1148,6 +1966,74 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CampusRestrictedZoneResponseDto"];
+                };
+            };
+        };
+    };
+    AdminController_getDashboardSummary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DashboardSummaryResponseDto"];
+                };
+            };
+        };
+    };
+    AdminController_listRides: {
+        parameters: {
+            query?: {
+                status?: "REQUESTED" | "SEARCHING_DRIVER" | "DRIVER_ASSIGNED" | "DRIVER_EN_ROUTE_TO_PICKUP" | "DRIVER_ARRIVED" | "RIDE_STARTED" | "DRIVER_EN_ROUTE_TO_DESTINATION" | "COMPLETED" | "CANCELLED_BY_USER" | "CANCELLED_BY_DRIVER" | "CANCELLED_BY_SYSTEM" | "NO_DRIVER_AVAILABLE";
+                userId?: string;
+                driverId?: string;
+                /** @description ISO 8601 - filters rides.requestedAt >= this value */
+                requestedAfter?: string;
+                /** @description ISO 8601 - filters rides.requestedAt <= this value */
+                requestedBefore?: string;
+                /** @description Clamped to [1, 200]. */
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminRidesListResponseDto"];
+                };
+            };
+        };
+    };
+    AdminController_getLiveMap: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LiveMapDriverResponseDto"][];
                 };
             };
         };

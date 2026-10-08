@@ -1,7 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { eq, ilike, or } from 'drizzle-orm';
+import { and, desc, eq, ilike, or, sql } from 'drizzle-orm';
 import { DRIZZLE, DrizzleDb } from '../db/drizzle.module';
 import { users, type NewUser, type User } from '../db/schema';
+import type { ListUsersQueryDto } from './dto/list-users-query.dto';
 
 @Injectable()
 export class UsersService {
@@ -52,5 +53,36 @@ export class UsersService {
   async create(data: NewUser): Promise<User> {
     const [user] = await this.db.insert(users).values(data).returning();
     return user;
+  }
+
+  /**
+   * ADMIN-only account search (users.controller.ts's GET /api/v1/users - this resource's own
+   * collection endpoint, same as GET /drivers / GET /vehicles on their own controllers, not an
+   * /admin-prefixed route - see docs/open-items.md). `search` reuses the same case-insensitive
+   * `ilike` pattern findByMobileOrEmail already uses, against name/mobile/email.
+   */
+  async search(query: ListUsersQueryDto): Promise<{ items: User[]; total: number }> {
+    const conditions = [];
+    if (query.role) conditions.push(eq(users.role, query.role));
+    if (query.search) {
+      const pattern = `%${query.search}%`;
+      conditions.push(or(ilike(users.name, pattern), ilike(users.mobile, pattern), ilike(users.email, pattern)));
+    }
+
+    // and(...[]) is undefined in drizzle-orm, and .where(undefined) is a no-op.
+    const where = and(...conditions);
+
+    const [items, totalRows] = await Promise.all([
+      this.db
+        .select()
+        .from(users)
+        .where(where)
+        .orderBy(desc(users.createdAt))
+        .limit(query.limit)
+        .offset(query.offset),
+      this.db.select({ count: sql<string>`count(*)` }).from(users).where(where),
+    ]);
+
+    return { items, total: Number(totalRows[0]?.count ?? 0) };
   }
 }
