@@ -16,7 +16,7 @@ Reconciled against the actual repo state, not just doc intent - verified by read
 | 6 - Navigation | **Partially started** | Backend `GET /api/v1/maps/route` + Valhalla integration done (pulled forward into Phase 3). In-app turn-by-turn UI, voice guidance, off-route rerouting in Flutter: not started. |
 | 7 - Notifications | **Backend done** | Device token registration + FCM push consumer implemented and tested (mocked Firebase - no real project configured here, so no push has been verified against a real device). See the Phase 7 section below. |
 | 8 - Admin Operations | **Done** | Admin dashboard, users, and rides-search pages implemented and verified live in a browser. A password-hash leak in `/users` found and fixed along the way (#45). |
-| 9 - Hardening | **Not started** | No metrics, no outbox, no idempotency keys, no load/failure-scenario tests yet. |
+| 9 - Hardening | **Backend done** | Observability (Prometheus metrics + Redis-aware health checks), rate limiting + leak audit, and refresh-token rotation/revocation all implemented and tested end-to-end (real Postgres/Redis). Offline/reconnection hardening and load/concurrency tests beyond what Phase 4/5's own integration tests already cover are not part of this - see the Phase 9 section below. |
 
 **Bottom line:** the full booking core now works end-to-end - a user can request a ride, get matched to the nearest real driver, have it accepted, and ride it through to completion and history, all server-authoritative with reliable event publishing and safe retries. What's still greenfield: real-time delivery (no WebSocket gateway yet - clients would have to poll today), turn-by-turn navigation UI, push notifications, and the operational/hardening work. See §4 below for the reconciled next steps.
 
@@ -138,14 +138,17 @@ Backend routing (`GET /api/v1/maps/route` + Valhalla) was pulled forward into Ph
 
 **Known gaps (see [docs/open-items.md](./open-items.md)):** no rendered map (data table instead, #38/#41); dashboard/live-map poll rather than subscribe to `/ws` (#42); a real **security fix** landed in review - `GET /users/me`/`GET /users` had been leaking every user's bcrypt `passwordHash` since Phase 1, now fixed with a regression test (#45).
 
-### Phase 9 - Hardening `[NOT STARTED]`
+### Phase 9 - Hardening `[BACKEND DONE]`
 
-* Observability: metrics (including `outbox_pending_events`/`outbox_publish_failures_total` - [architecture.md §10](./architecture.md#10-observability)), health checks, error tracking wired to the dashboards operations will actually use
-* Offline/reconnection hardening (driver app network loss - [specification.md §8](./specification.md#8-error--edge-case-handling))
-* Security review: token rotation, rate limiting, WebSocket auth, audit logging coverage
-* Load/concurrency tests for the double-accept and duplicate-request scenarios in [specification.md §11.2](./specification.md#112-failure-scenarios)
+* [x] Observability: every metric [architecture.md §10](./architecture.md#10-observability) names by name is live at `GET /metrics` (Prometheus text-exposition, `prom-client`) - `ride_requests_total`, `ride_completed_total`, `ride_cancelled_total{cancelled_by}`, `ride_assignment_duration_seconds`, `active_rides`, `available_drivers`, `driver_location_updates_total{outcome}`, `websocket_connections`, `push_notifications_total{outcome}`, `outbox_pending_events`, `outbox_publish_failures_total`, `outbox_publish_latency_seconds`, plus default Node process metrics. `GET /health/ready` now checks both Postgres and Redis (503 if either is down); `/health`/`/health/live` stay dependency-free. See [docs/open-items.md](./open-items.md) #44-49.
+* [x] Security review: rate limiting (`@nestjs/throttler`, global 100/min-per-IP default, stricter 5/min override on login/register/login-password, `@SkipThrottle()` on health/metrics/the WS gateway's message handler), a leak audit (found and fixed a second raw-entity leak - `device_tokens.token` echoed by `POST /notifications/device-tokens`, same bug class as #45), and a WebSocket auth hardening review (confirmed the `emitToUser`/`emitToDriver`-only invariant still holds; documented, rather than built around, a real-but-minor gap where a socket's JWT is never revalidated after the handshake). See [docs/open-items.md](./open-items.md) #50-53.
+* [x] Token rotation: refresh tokens are no longer bare stateless JWTs - a new `refresh_tokens` table records every issued token (SHA-256-hashed, not bcrypt - see #54 for why), `AuthService#refresh` rotates atomically on every call, reuse of an already-revoked token is treated as a theft signal and revokes every active session for that user (#55, flagged for human review), and a new `POST /auth/logout` lets a client revoke on demand. See [docs/open-items.md](./open-items.md) #54-58.
+* [ ] Offline/reconnection hardening (driver app network loss - [specification.md §8](./specification.md#8-error--edge-case-handling)) - **not started**, blocked on Flutter tooling not available in this sandbox, same class of gap as Phases 5/6/7's own Flutter-side work.
+* [ ] Load/concurrency tests for the double-accept and duplicate-request scenarios in [specification.md §11.2](./specification.md#112-failure-scenarios) beyond what Phase 4/5's own integration tests (`assignment.service.integration-spec.ts`, `rides.service.integration-spec.ts`) already cover - **not started**, no load-testing tool/data exists in this sandbox; revisit with real traffic data per #51/#57's own caveats.
 
-**Deliverable:** System survives network flakiness and passes a security review before wider rollout.
+**Deliverable - met on the backend:** the system now has real observability, a real rate-limiting/leak-closed security posture, and real refresh-token revocation - all verified end-to-end against real Postgres/Redis, not mocked. **Not met yet:** the Flutter-side offline/reconnection hardening and any load-testing beyond this sandbox's own integration-test concurrency races.
+
+**Two items flagged for human review before wider rollout** (see [docs/open-items.md](./open-items.md) #55/#56): whether "revoke every active session" is the right default for reuse-detection (vs. a narrower per-chain revoke), and that deploying the refresh-token migration invalidates every currently-live refresh token fleet-wide on its first use after rollout (a one-time forced re-login for every logged-in user/driver - worth a low-traffic deployment window).
 
 ## 3. Development Priority (within/across phases)
 
@@ -174,9 +177,10 @@ The **ride state machine, dispatch/assignment logic, and real-time location pipe
 
 ## 4. Immediate Next Steps
 
-Phases 4, 5 (backend), and 7 (backend) are all done (§0/§2 above). Given §0, the next unit of work is one of:
+Phases 4, 5 (backend), 7 (backend), 8, and 9 (backend) are all done (§0/§2 above) - every backend-buildable unit of work this sandbox can do without Flutter tooling or a real device/Firebase project is now complete. What's left is one of:
 
-1. **The Flutter-side halves of Phases 5/6/7**: live tracking UI, turn-by-turn navigation, and receiving/deep-linking push notifications. All need Flutter tooling, not available in this sandbox (see [docs/open-items.md](./open-items.md) #1 for the same class of environment gap) - a session with that tooling should pick these up.
-2. **Phase 8 (Admin Operations)**: the Admin **React** app already exists and runs (Drivers/Vehicles/CampusLocations pages) - no Flutter needed. What's missing is backend: `admin/admin.module.ts` is still an empty scaffold, so there's no live-ops dashboard API (active rides list, driver/vehicle availability counts, ride history/search) for that app to consume. Buildable in this sandbox.
-3. **Phase 9 (Hardening)**: metrics, more complete health checks, and the BullMQ/ioredis graceful-shutdown gap ([docs/open-items.md](./open-items.md) #19) - flagged as a real production concern, not just test noise, since the same leak would apply to a real shutdown signal. Also buildable here.
-4. **Housekeeping**: the e2e test-isolation fix landed this session (`maxWorkers: 1`, #30/#37) is a stopgap, not the long-term answer (#30's own suggestion: per-worker DB/Redis isolation) if the suite keeps growing through Phase 8/9's own new tests.
+1. **The Flutter-side halves of Phases 5/6/7/9**: live tracking UI, turn-by-turn navigation, receiving/deep-linking push notifications, and offline/reconnection hardening in the driver app. All need Flutter tooling, not available in this sandbox (see [docs/open-items.md](./open-items.md) #1 for the same class of environment gap) - a session with that tooling should pick these up.
+2. **Real-device/production verification**: no push has reached a real device (#36, no Firebase project configured here); no load-testing tool/data exists to tune the rate-limit thresholds (#51) or the refresh-token cleanup retention window (#57) against real traffic.
+3. **Two human-review items from Phase 9**, worth resolving before wider rollout, not blocking further sandbox work: the reuse-detection severity tradeoff (#55) and the refresh-token migration's one-time fleet-wide re-login impact (#56).
+4. **Housekeeping**: the e2e test-isolation fix (`maxWorkers: 1`, #30/#37) is a stopgap, not the long-term answer (#30's own suggestion: per-worker DB/Redis isolation) if the suite keeps growing with more tests.
+5. **Phase 3/6's remaining backend gaps**: Planetiler base-map tiles and an Admin-triggered rebuild button (Phase 3's two unchecked items) are genuinely buildable here and don't need Flutter - worth a look if more sandbox-side work is wanted before switching to a Flutter-capable session.
