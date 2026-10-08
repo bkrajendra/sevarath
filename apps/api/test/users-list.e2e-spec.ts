@@ -100,6 +100,38 @@ describe('GET /api/v1/users (e2e, real Postgres)', () => {
     }
   });
 
+  /**
+   * Regression test: review of this task's hand-off found that users.controller.ts was
+   * returning the raw `users` row/array from both this endpoint and GET /users/me - never
+   * mapped through UserResponseDto at runtime (it only existed for Swagger's @ApiOkResponse
+   * metadata; this codebase has no global ClassSerializerInterceptor). That leaked every
+   * caller's bcrypt passwordHash (and firebaseUid) to any ADMIN hitting this list. Fixed by
+   * explicitly mapping to the safe field set in the controller - this test proves it stays
+   * fixed.
+   */
+  it('never returns passwordHash or firebaseUid, even though the DB row carries both', async () => {
+    const seeded = await makeUser('secret-fields', {
+      mobile: `users-list-e2e-secret-fields-${suffix}`,
+    });
+    await db.update(users).set({ passwordHash: 'bcrypt-hash-should-never-leave-the-server' }).where(
+      inArray(users.id, [seeded.id]),
+    );
+
+    const res = await request(app.getHttpServer())
+      .get('/api/v1/users')
+      .query({ search: `secret-fields-${suffix}` })
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+
+    expect(res.body.items).toHaveLength(1);
+    const [item] = res.body.items;
+    expect(item).not.toHaveProperty('passwordHash');
+    expect(item).not.toHaveProperty('firebaseUid');
+    expect(Object.keys(item).sort()).toEqual(
+      ['createdAt', 'email', 'id', 'mobile', 'name', 'role', 'status', 'updatedAt'].sort(),
+    );
+  });
+
   it('filters by free-text search against name/mobile/email (case-insensitive)', async () => {
     const unique = `findme-${suffix}`;
     const target = await makeUser('search-target', {

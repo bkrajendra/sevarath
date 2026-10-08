@@ -20,12 +20,12 @@ export class UsersController {
 
   @Get('me')
   @ApiOkResponse({ type: UserResponseDto })
-  async me(@CurrentUser() currentUser: RequestUser): Promise<User> {
+  async me(@CurrentUser() currentUser: RequestUser): Promise<UserResponseDto> {
     const user = await this.usersService.findById(currentUser.userId);
     if (!user) {
       throw new NotFoundException('User not found');
     }
-    return user;
+    return toUserResponse(user);
   }
 
   /**
@@ -38,7 +38,36 @@ export class UsersController {
   @Get()
   @Roles('ADMIN')
   @ApiOkResponse({ type: UsersListResponseDto })
-  findAll(@Query() query: ListUsersQueryDto): Promise<{ items: User[]; total: number }> {
-    return this.usersService.search(query);
+  async findAll(
+    @Query() query: ListUsersQueryDto,
+  ): Promise<{ items: UserResponseDto[]; total: number }> {
+    const { items, total } = await this.usersService.search(query);
+    return { items: items.map(toUserResponse), total };
   }
+}
+
+/**
+ * `users` rows carry `passwordHash` (and `firebaseUid`) - fields that must never reach a
+ * client. Neither endpoint above had been mapping through `UserResponseDto` at all (it was
+ * declared only for Swagger's `@ApiOkResponse` metadata, never actually applied at runtime -
+ * this codebase has no global `ClassSerializerInterceptor`), so both were returning the raw DB
+ * row/array verbatim. `GET /users/me` has leaked the caller's own hash since Phase 1; `GET
+ * /users` (Phase 8) made it worse by leaking *every* user's hash to any ADMIN caller. Fixed by
+ * explicitly mapping to the safe field set here, at the controller boundary, rather than
+ * instrumenting a serializer - other controllers in this codebase (drivers/vehicles) return raw
+ * entities too, but none of their entities carry a secret field, so this mapper is this
+ * resource's own responsibility, not a precedent to generalize unless another entity gains a
+ * sensitive column.
+ */
+function toUserResponse(user: User): UserResponseDto {
+  return {
+    id: user.id,
+    name: user.name,
+    mobile: user.mobile,
+    email: user.email,
+    role: user.role,
+    status: user.status,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+  };
 }
