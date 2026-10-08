@@ -9,6 +9,7 @@ import { FirebaseAdminProvider, FIREBASE_ADMIN } from './firebase/firebase-admin
 import { FirebaseStrategy } from './strategies/firebase.strategy';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { RolesGuard } from './guards/roles.guard';
+import { RefreshTokenCleanupService } from './refresh-token-cleanup.service';
 
 @Module({
   imports: [
@@ -24,7 +25,19 @@ import { RolesGuard } from './guards/roles.guard';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, FirebaseAdminProvider, FirebaseStrategy, JwtStrategy, RolesGuard],
+  providers: [
+    AuthService,
+    FirebaseAdminProvider,
+    FirebaseStrategy,
+    JwtStrategy,
+    RolesGuard,
+    // Phase 9 (Hardening) - sweeps revoked/expired `refresh_tokens` rows; see its own doc
+    // comment for the retention window. Only depends on `DRIZZLE` (global) and
+    // `SchedulerRegistry` (provided globally by `ScheduleModule.forRoot()` in app.module.ts),
+    // same as `IdempotencyCleanupService` in common.module.ts - registered here rather than
+    // there since this table is owned by AuthModule, not a cross-cutting concern.
+    RefreshTokenCleanupService,
+  ],
   // JwtModule is exported so other modules that need to verify JWTs outside of Passport's
   // HTTP-only AuthGuard flow (e.g. LocationsModule's WebSocket handshake auth) can inject
   // JwtService directly, without duplicating the secret/TTL config from ConfigService.

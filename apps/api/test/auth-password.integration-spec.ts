@@ -32,10 +32,17 @@ describeIfDb('AuthService password auth (integration)', () => {
       JWT_REFRESH_SECRET: 'test-refresh-secret',
       JWT_REFRESH_TTL: '30d',
     });
-    authService = new AuthService(usersService, new JwtService({}), config);
+    authService = new AuthService(usersService, new JwtService({}), config, db);
   });
 
   afterEach(async () => {
+    // Registration/login now record a `refresh_tokens` row (this task) - its FK to `users`
+    // means those rows must be deleted before the user row they reference, or the delete
+    // below fails with a foreign-key violation.
+    const existing = await usersService.findByMobileOrEmail(testMobile);
+    if (existing) {
+      await db.delete(schema.refreshTokens).where(eq(schema.refreshTokens.userId, existing.id));
+    }
     await db.delete(schema.users).where(eq(schema.users.mobile, testMobile));
   });
 

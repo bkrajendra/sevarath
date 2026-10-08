@@ -43,6 +43,13 @@
       "when": 1791408330052,
       "tag": "0005_careful_lionheart",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791447041204,
+      "tag": "0006_windy_the_watchers",
+      "breakpoints": true
     }
   ]
 }

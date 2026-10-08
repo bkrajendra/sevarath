@@ -1,5 +1,5 @@
 import { Body, Controller, HttpCode, HttpStatus, Post, Req, UseGuards } from '@nestjs/common';
-import { ApiBody, ApiOkResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBody, ApiNoContentResponse, ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import type { Request } from 'express';
 import type * as admin from 'firebase-admin';
@@ -7,6 +7,7 @@ import { AuthService } from './auth.service';
 import { FirebaseAuthGuard } from './guards/firebase-auth.guard';
 import { LoginDto } from './dto/login.dto';
 import { RefreshDto } from './dto/refresh.dto';
+import { LogoutDto } from './dto/logout.dto';
 import { TokenResponseDto } from './dto/token-response.dto';
 import { RegisterDto } from './dto/register.dto';
 import { PasswordLoginDto } from './dto/password-login.dto';
@@ -73,5 +74,22 @@ export class AuthController {
   @ApiOkResponse({ type: TokenResponseDto })
   async refresh(@Body() dto: RefreshDto): Promise<TokenResponseDto> {
     return this.authService.refresh(dto.refreshToken);
+  }
+
+  /**
+   * Revokes the presented refresh token server-side (see docs/open-items.md). No guard - same
+   * posture as `/auth/refresh`: it authenticates via possession of the token itself, not a
+   * bearer access token (the access token may well have already expired by the time a client
+   * logs out, and shouldn't need to be refreshed just to call this). `204 No Content`, matching
+   * `DeviceTokensController#unregister`'s convention for a no-meaningful-response-body mutating
+   * endpoint. Idempotent: an already-revoked or unrecognized token still 204s - see
+   * `AuthService#revoke`'s doc comment for why an error response here would be a probe vector.
+   */
+  @Post('logout')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiBody({ type: LogoutDto })
+  @ApiNoContentResponse()
+  async logout(@Body() dto: LogoutDto): Promise<void> {
+    await this.authService.revoke(dto.refreshToken);
   }
 }
