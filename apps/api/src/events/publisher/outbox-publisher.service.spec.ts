@@ -25,6 +25,14 @@ function makeDbMock() {
   return { update, set, where } as const;
 }
 
+/** Minimal mock of the two MetricsService members `publishOne`/`markFailed` actually touch. */
+function makeMetricsMock() {
+  return {
+    outboxPublishLatencySeconds: { observe: jest.fn() },
+    outboxPublishFailuresTotal: { inc: jest.fn() },
+  } as const;
+}
+
 /**
  * These specs cover the Phase 7 fan-out change: `publishOne` now enqueues the same job onto
  * *both* `DOMAIN_EVENTS_QUEUE` (WebSocket forwarding) and `NOTIFICATION_EVENTS_QUEUE` (push
@@ -40,7 +48,8 @@ describe('OutboxPublisherService.publishOne', () => {
     const db = makeDbMock();
     const queue = { add: jest.fn().mockResolvedValue(undefined) };
     const notificationQueue = { add: jest.fn().mockResolvedValue(undefined) };
-    const service = new OutboxPublisherService(db as any, queue as any, notificationQueue as any);
+    const metrics = makeMetricsMock();
+    const service = new OutboxPublisherService(db as any, queue as any, notificationQueue as any, metrics as any);
     const row = makeRow();
 
     await service.publishOne(row);
@@ -58,19 +67,29 @@ describe('OutboxPublisherService.publishOne', () => {
     expect(notificationQueue.add).toHaveBeenCalledWith('RideRequested', expectedJob);
     expect(db.update).toHaveBeenCalledTimes(1);
     expect(db.set).toHaveBeenCalledWith(expect.objectContaining({ publishedAt: expect.any(Date) }));
+    // outbox_publish_latency_seconds observed exactly once, on the success path, with a
+    // non-negative duration (createdAt is in the past relative to the mocked publishedAt).
+    expect(metrics.outboxPublishLatencySeconds.observe).toHaveBeenCalledTimes(1);
+    expect(metrics.outboxPublishLatencySeconds.observe).toHaveBeenCalledWith(expect.any(Number));
+    expect(metrics.outboxPublishFailuresTotal.inc).not.toHaveBeenCalled();
   });
 
   it('bumps retry_count and records last_error without touching published_at when the domain queue fails', async () => {
     const db = makeDbMock();
     const queue = { add: jest.fn().mockRejectedValue(new Error('redis down')) };
     const notificationQueue = { add: jest.fn().mockResolvedValue(undefined) };
-    const service = new OutboxPublisherService(db as any, queue as any, notificationQueue as any);
+    const metrics = makeMetricsMock();
+    const service = new OutboxPublisherService(db as any, queue as any, notificationQueue as any, metrics as any);
     const row = makeRow({ retryCount: 2 });
 
     await service.publishOne(row);
 
     expect(db.update).toHaveBeenCalledTimes(1);
     expect(db.set).toHaveBeenCalledWith({ retryCount: 3, lastError: 'redis down' });
+    // outbox_publish_failures_total incremented exactly once on the failure path, and the
+    // latency histogram (success-only) is never touched.
+    expect(metrics.outboxPublishFailuresTotal.inc).toHaveBeenCalledTimes(1);
+    expect(metrics.outboxPublishLatencySeconds.observe).not.toHaveBeenCalled();
   });
 
   it('bumps retry_count and records last_error without touching published_at when only the notification queue fails', async () => {
@@ -79,7 +98,8 @@ describe('OutboxPublisherService.publishOne', () => {
     const db = makeDbMock();
     const queue = { add: jest.fn().mockResolvedValue(undefined) };
     const notificationQueue = { add: jest.fn().mockRejectedValue(new Error('notification queue down')) };
-    const service = new OutboxPublisherService(db as any, queue as any, notificationQueue as any);
+    const metrics = makeMetricsMock();
+    const service = new OutboxPublisherService(db as any, queue as any, notificationQueue as any, metrics as any);
     const row = makeRow({ retryCount: 0 });
 
     await service.publishOne(row);
@@ -94,7 +114,8 @@ describe('OutboxPublisherService.publishOne', () => {
     const db = makeDbMock();
     const queue = { add: jest.fn().mockRejectedValue(new Error('boom')) };
     const notificationQueue = { add: jest.fn().mockResolvedValue(undefined) };
-    const service = new OutboxPublisherService(db as any, queue as any, notificationQueue as any);
+    const metrics = makeMetricsMock();
+    const service = new OutboxPublisherService(db as any, queue as any, notificationQueue as any, metrics as any);
 
     await expect(service.publishOne(makeRow())).resolves.toBeUndefined();
   });

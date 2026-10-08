@@ -17,6 +17,14 @@ function makeSlowQueue(addedEventIds: string[], delayMs = 300) {
   };
 }
 
+/** Stand-in for MetricsService - this suite is about the SKIP LOCKED race, not metrics. */
+function makeMetricsMock() {
+  return {
+    outboxPublishLatencySeconds: { observe: jest.fn() },
+    outboxPublishFailuresTotal: { inc: jest.fn() },
+  };
+}
+
 /**
  * Real-Postgres proof of docs/open-items.md #4's fix: `pollAndPublish`'s `SELECT ... FOR UPDATE
  * SKIP LOCKED` actually prevents two concurrent publisher instances (today's single process
@@ -79,8 +87,8 @@ describe('OutboxPublisherService.pollAndPublish (integration, real Postgres, con
     const domainQueueB = makeSlowQueue(addedToDomainQueue);
     const notificationQueueB = makeSlowQueue(addedToNotificationQueue);
 
-    const serviceA = new OutboxPublisherService(dbA as any, domainQueueA as any, notificationQueueA as any);
-    const serviceB = new OutboxPublisherService(dbB as any, domainQueueB as any, notificationQueueB as any);
+    const serviceA = new OutboxPublisherService(dbA as any, domainQueueA as any, notificationQueueA as any, makeMetricsMock() as any);
+    const serviceB = new OutboxPublisherService(dbB as any, domainQueueB as any, notificationQueueB as any, makeMetricsMock() as any);
 
     // Genuinely concurrent - both start before either has a chance to commit and release its
     // row locks. Without FOR UPDATE SKIP LOCKED, both would SELECT the same 6 rows.
@@ -108,8 +116,8 @@ describe('OutboxPublisherService.pollAndPublish (integration, real Postgres, con
     const addedToDomainQueue: string[] = [];
     const slowQueue = makeSlowQueue(addedToDomainQueue, 500);
     const fastQueue = makeSlowQueue([], 0);
-    const serviceSlow = new OutboxPublisherService(dbA as any, slowQueue as any, fastQueue as any);
-    const serviceFast = new OutboxPublisherService(dbB as any, fastQueue as any, fastQueue as any);
+    const serviceSlow = new OutboxPublisherService(dbA as any, slowQueue as any, fastQueue as any, makeMetricsMock() as any);
+    const serviceFast = new OutboxPublisherService(dbB as any, fastQueue as any, fastQueue as any, makeMetricsMock() as any);
 
     const slowRun = serviceSlow.pollAndPublish();
     // Give the slow run a head start so it has definitely acquired the row lock (SELECT ... FOR

@@ -5,6 +5,7 @@ import { Queue } from 'bullmq';
 import { asc, eq, isNull } from 'drizzle-orm';
 import { DRIZZLE, type DrizzleDb } from '../../db/drizzle.module';
 import { outboxEvents, type OutboxEvent } from '../../db/schema';
+import { MetricsService } from '../../metrics/metrics.service';
 import { DOMAIN_EVENTS_QUEUE, NOTIFICATION_EVENTS_QUEUE } from '../outbox.constants';
 
 const POLL_INTERVAL_MS = 2000;
@@ -58,6 +59,7 @@ export class OutboxPublisherService {
     @Inject(DRIZZLE) private readonly db: DrizzleDb,
     @InjectQueue(DOMAIN_EVENTS_QUEUE) private readonly queue: Queue,
     @InjectQueue(NOTIFICATION_EVENTS_QUEUE) private readonly notificationQueue: Queue,
+    private readonly metrics: MetricsService,
   ) {}
 
   @Interval(POLL_INTERVAL_MS)
@@ -100,7 +102,12 @@ export class OutboxPublisherService {
       // Both must succeed before this row is marked published - see class doc comment above.
       await Promise.all([this.queue.add(row.eventType, job), this.notificationQueue.add(row.eventType, job)]);
 
-      await tx.update(outboxEvents).set({ publishedAt: new Date() }).where(eq(outboxEvents.id, row.id));
+      const publishedAt = new Date();
+      await tx.update(outboxEvents).set({ publishedAt }).where(eq(outboxEvents.id, row.id));
+
+      // outbox_publish_latency_seconds (architecture.md §10): created_at -> the moment this row
+      // is actually marked published, i.e. this exact point - only reached on the success path.
+      this.metrics.outboxPublishLatencySeconds.observe((publishedAt.getTime() - row.createdAt.getTime()) / 1000);
     } catch (error) {
       await this.markFailed(row, tx, error);
     }
@@ -109,6 +116,7 @@ export class OutboxPublisherService {
   private async markFailed(row: OutboxEvent, tx: DrizzleDb, error: unknown): Promise<void> {
     const message = error instanceof Error ? error.message : String(error);
     this.logger.warn(`Failed to publish outbox event ${row.id} (${row.eventType}): ${message}`);
+    this.metrics.outboxPublishFailuresTotal.inc();
     await tx
       .update(outboxEvents)
       .set({ retryCount: row.retryCount + 1, lastError: message })

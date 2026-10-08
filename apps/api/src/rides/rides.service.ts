@@ -11,6 +11,7 @@ import { and, desc, eq, notInArray } from 'drizzle-orm';
 import { DRIZZLE, DrizzleDb } from '../db/drizzle.module';
 import { drivers, rideEvents, rides, type Ride } from '../db/schema';
 import { OutboxService } from '../events/outbox/outbox.service';
+import { MetricsService } from '../metrics/metrics.service';
 import type { RequestUser } from '../auth/types/jwt-payload.interface';
 import {
   applyRideTransition,
@@ -26,6 +27,7 @@ export class RidesService {
     @Inject(DRIZZLE) private readonly db: DrizzleDb,
     private readonly outboxService: OutboxService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly metrics: MetricsService,
   ) {}
 
   /**
@@ -106,6 +108,8 @@ export class RidesService {
 
       return searching;
     });
+
+    this.metrics.rideRequestsTotal.inc();
 
     // In-process, same-process, fire-and-forget notification so a future Dispatch module can
     // start matching, WITHOUT RidesModule importing a DispatchModule that doesn't exist yet
@@ -191,6 +195,8 @@ export class RidesService {
       return result;
     });
 
+    this.metrics.rideCancelledTotal.inc({ cancelled_by: toStatus.replace('CANCELLED_BY_', '') });
+
     // Same in-process/outbox distinction as the 'ride.requested' emit in create() above: this
     // lets the Dispatch module release the driver/vehicle back to AVAILABLE without RidesModule
     // importing DispatchModule. Only fired when a driver was actually assigned - a ride
@@ -244,6 +250,8 @@ export class RidesService {
       'COMPLETED',
       'RideCompleted',
     );
+
+    this.metrics.rideCompletedTotal.inc();
 
     // Same in-process/outbox distinction as the 'ride.requested' emit in create() above - lets
     // the Dispatch module release the driver/vehicle back to AVAILABLE without RidesModule

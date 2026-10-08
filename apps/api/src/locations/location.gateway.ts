@@ -14,6 +14,7 @@ import type { Server, Socket } from 'socket.io';
 import { DRIZZLE, type DrizzleDb } from '../db/drizzle.module';
 import { rides, type Ride } from '../db/schema';
 import { DriversService } from '../drivers/drivers.service';
+import { MetricsService } from '../metrics/metrics.service';
 import type { RequestUser } from '../auth/types/jwt-payload.interface';
 import { RIDE_TRANSITIONS, type RideStatus } from '../rides/ride-state-machine';
 import { authenticateSocket } from './ws-jwt.guard';
@@ -190,6 +191,7 @@ export class LocationGateway implements OnGatewayConnection, OnGatewayDisconnect
     private readonly driversService: DriversService,
     private readonly locationCache: LocationCacheService,
     @Inject(DRIZZLE) private readonly db: DrizzleDb,
+    private readonly metrics: MetricsService,
   ) {}
 
   async handleConnection(client: Socket): Promise<void> {
@@ -201,6 +203,7 @@ export class LocationGateway implements OnGatewayConnection, OnGatewayDisconnect
     }
 
     (client.data as SocketData).user = user;
+    this.metrics.websocketConnections.inc();
     await client.join(userRoom(user.userId));
 
     if (user.role === 'DRIVER') {
@@ -240,6 +243,12 @@ export class LocationGateway implements OnGatewayConnection, OnGatewayDisconnect
 
   handleDisconnect(client: Socket): void {
     const user = (client.data as SocketData | undefined)?.user;
+    if (user) {
+      // Only decrement for a connection that was actually counted on the way in - a rejected
+      // (never-authenticated) connection calls client.disconnect() itself before setting
+      // client.data.user, so it never incremented the gauge in the first place.
+      this.metrics.websocketConnections.dec();
+    }
     this.logger.log(
       `WebSocket disconnected: socket=${client.id}` +
         (user ? ` userId=${user.userId} role=${user.role}` : ' (unauthenticated)'),
@@ -296,9 +305,14 @@ export class LocationGateway implements OnGatewayConnection, OnGatewayDisconnect
       });
       if (!result.accepted) {
         // Low-quality fix dropped (LocationCacheService already logged why) - don't dual-write
-        // or forward a reading we just decided not to trust.
+        // or forward a reading we just decided not to trust. Still counted, under its own
+        // outcome label, so driver_location_updates_total reflects every push received, not
+        // just the ones that passed the accuracy filter.
+        this.metrics.driverLocationUpdatesTotal.inc({ outcome: 'rejected_low_accuracy' });
         return;
       }
+
+      this.metrics.driverLocationUpdatesTotal.inc({ outcome: 'accepted' });
 
       // Dual-write (open-items.md #2): keep the existing DB snapshot fresh too. Dispatch
       // matching (driver-matcher.service.ts) and the accept flow (assignment.service.ts) still

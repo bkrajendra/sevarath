@@ -16,11 +16,17 @@ describe('RidesService (integration)', () => {
   let otherUserId: string;
 
   const fakeEmitter = { emit: jest.fn() } as unknown as import('@nestjs/event-emitter').EventEmitter2;
+  // Metrics stand-in - this suite is about ride lifecycle/authorization, not metrics.
+  const metricsStub = {
+    rideRequestsTotal: { inc: jest.fn() },
+    rideCompletedTotal: { inc: jest.fn() },
+    rideCancelledTotal: { inc: jest.fn() },
+  };
 
   beforeAll(async () => {
     pool = new Pool({ connectionString: process.env.DATABASE_URL });
     db = drizzle(pool, { schema });
-    service = new RidesService(db as any, new OutboxService(), fakeEmitter);
+    service = new RidesService(db as any, new OutboxService(), fakeEmitter, metricsStub as any);
 
     const [rider] = await db
       .insert(users)
@@ -49,6 +55,9 @@ describe('RidesService (integration)', () => {
   });
 
   afterEach(async () => {
+    metricsStub.rideRequestsTotal.inc.mockClear();
+    metricsStub.rideCompletedTotal.inc.mockClear();
+    metricsStub.rideCancelledTotal.inc.mockClear();
     const rideRows = await db.select({ id: rides.id }).from(rides).where(eq(rides.userId, riderId));
     const rideIds = rideRows.map((r) => r.id);
     if (rideIds.length > 0) {
@@ -79,6 +88,9 @@ describe('RidesService (integration)', () => {
     expect(outboxRows).toHaveLength(1);
     expect(outboxRows[0].eventType).toBe('RideRequested');
     expect(outboxRows[0].aggregateType).toBe('ride');
+
+    // ride_requests_total (architecture.md §10) incremented exactly once for this successful create.
+    expect(metricsStub.rideRequestsTotal.inc).toHaveBeenCalledTimes(1);
   });
 
   it('cancel() succeeds from a cancellable state (SEARCHING_DRIVER)', async () => {
@@ -90,6 +102,9 @@ describe('RidesService (integration)', () => {
 
     const events = await db.select().from(rideEvents).where(eq(rideEvents.rideId, ride.id));
     expect(events.some((e) => e.eventType === 'RideCancelled')).toBe(true);
+
+    // ride_cancelled_total labeled by who cancelled - a USER-initiated cancel here.
+    expect(metricsStub.rideCancelledTotal.inc).toHaveBeenCalledWith({ cancelled_by: 'USER' });
   });
 
   it('cancel() is rejected once the ride has reached RIDE_STARTED', async () => {

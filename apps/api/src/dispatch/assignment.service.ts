@@ -3,6 +3,7 @@ import { and, eq } from 'drizzle-orm';
 import { DRIZZLE, type DrizzleDb } from '../db/drizzle.module';
 import { drivers, rideEvents, rideOffers, vehicles, type Ride } from '../db/schema';
 import { OutboxService } from '../events/outbox/outbox.service';
+import { MetricsService } from '../metrics/metrics.service';
 import { applyRideTransition } from '../rides/ride-state-machine';
 import { DispatchService } from './dispatch.service';
 
@@ -17,6 +18,7 @@ export class AssignmentService {
     @Inject(DRIZZLE) private readonly db: DrizzleDb,
     private readonly outboxService: OutboxService,
     private readonly dispatchService: DispatchService,
+    private readonly metrics: MetricsService,
   ) {}
 
   /**
@@ -109,6 +111,16 @@ export class AssignmentService {
 
       return updatedRide;
     });
+
+    // ride_assignment_duration_seconds (architecture.md §10): time from SEARCHING_DRIVER to
+    // DRIVER_ASSIGNED, computed straight from the ride's own requestedAt/acceptedAt columns -
+    // applyRideTransition above stamps acceptedAt the instant this transition commits, so no
+    // separate clock/timer is needed.
+    if (ride.acceptedAt) {
+      this.metrics.rideAssignmentDurationSeconds.observe(
+        (ride.acceptedAt.getTime() - ride.requestedAt.getTime()) / 1000,
+      );
+    }
 
     return ride;
   }

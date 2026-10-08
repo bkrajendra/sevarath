@@ -39,7 +39,7 @@ async function bootstrap() {
     next();
   });
 
-  app.setGlobalPrefix('api', { exclude: ['health', 'health/ready', 'health/live'] });
+  app.setGlobalPrefix('api', { exclude: ['health', 'health/ready', 'health/live', 'metrics'] });
   app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
   app.useGlobalFilters(new HttpExceptionFilter());

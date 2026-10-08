@@ -7,6 +7,7 @@ import { DRIZZLE, type DrizzleDb } from '../db/drizzle.module';
 import { deviceTokens, drivers, rides, type Ride } from '../db/schema';
 import { FIREBASE_ADMIN } from '../auth/firebase/firebase-admin.provider';
 import { NOTIFICATION_EVENTS_QUEUE } from '../events/outbox.constants';
+import { MetricsService } from '../metrics/metrics.service';
 import type { DomainEventJob } from '../events/publisher/outbox-publisher.service';
 import { resolvePushRecipients } from './push-recipients';
 import { buildNotificationCopy } from './push-notification-copy';
@@ -32,6 +33,7 @@ export class PushNotificationConsumer extends WorkerHost {
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDb,
     @Inject(FIREBASE_ADMIN) private readonly firebaseApp: admin.app.App | null,
+    private readonly metrics: MetricsService,
   ) {
     super();
   }
@@ -129,6 +131,7 @@ export class PushNotificationConsumer extends WorkerHost {
       // The normal case for most users in this sandbox (no mobile client registers a real FCM
       // token here) - not an error.
       this.logger.debug(`No device tokens registered for user ${userId} - skipping push for ${eventType}.`);
+      this.metrics.pushNotificationsTotal.inc({ outcome: 'skipped_no_token' });
       return;
     }
 
@@ -140,6 +143,7 @@ export class PushNotificationConsumer extends WorkerHost {
         `FIREBASE_ADMIN is not configured - skipping push delivery for ${eventType} to user ${userId} ` +
           `(${tokens.length} token(s) registered).`,
       );
+      this.metrics.pushNotificationsTotal.inc({ outcome: 'skipped_not_configured' });
       return;
     }
 
@@ -152,6 +156,7 @@ export class PushNotificationConsumer extends WorkerHost {
           notification: { title: copy.title, body: copy.body },
           data: { rideId: ride.id, eventType },
         });
+        this.metrics.pushNotificationsTotal.inc({ outcome: 'sent' });
       } catch (error) {
         // Catch per-token: one expired/invalid/unregistered token must never stop delivery to
         // this user's other devices, or to any other recipient this job is also notifying - a
@@ -163,6 +168,7 @@ export class PushNotificationConsumer extends WorkerHost {
           `Push send failed for device token ${deviceToken.id} (user ${userId}, event ${eventType}): ` +
             `${code ?? message}`,
         );
+        this.metrics.pushNotificationsTotal.inc({ outcome: 'failed' });
 
         // FCM's own signal that this token is permanently dead (app uninstalled, token
         // rotated out from under us, etc.) - any other failure (transient network error, a

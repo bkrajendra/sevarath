@@ -104,6 +104,11 @@ function makeDbMock(opts: { rideRows?: Ride[][]; driverRows?: Driver[][]; tokenR
   return { select, delete: deleteFn, deleteWhere } as const;
 }
 
+/** Stand-in for MetricsService - only `pushNotificationsTotal.inc(...)` is ever touched here. */
+function makeMetricsMock() {
+  return { pushNotificationsTotal: { inc: jest.fn() } } as const;
+}
+
 describe('PushNotificationConsumer', () => {
   let sendMock: jest.Mock;
 
@@ -115,7 +120,7 @@ describe('PushNotificationConsumer', () => {
 
   it('no-ops for a non-ride aggregateType without touching the DB or messaging', async () => {
     const db = makeDbMock({});
-    const consumer = new PushNotificationConsumer(db as any, {} as any);
+    const consumer = new PushNotificationConsumer(db as any, {} as any, makeMetricsMock() as any);
 
     await consumer.process(makeJob({ aggregateType: 'something-else' }) as any);
 
@@ -127,7 +132,7 @@ describe('PushNotificationConsumer', () => {
     '%s has no push recipients and never touches the DB (WS/HTTP already cover it)',
     async (eventType) => {
       const db = makeDbMock({});
-      const consumer = new PushNotificationConsumer(db as any, {} as any);
+      const consumer = new PushNotificationConsumer(db as any, {} as any, makeMetricsMock() as any);
 
       await consumer.process(makeJob({ eventType }) as any);
 
@@ -138,7 +143,7 @@ describe('PushNotificationConsumer', () => {
 
   it('logs and returns (no throw) when the ride is not found', async () => {
     const db = makeDbMock({ rideRows: [[]] });
-    const consumer = new PushNotificationConsumer(db as any, {} as any);
+    const consumer = new PushNotificationConsumer(db as any, {} as any, makeMetricsMock() as any);
 
     await expect(
       consumer.process(makeJob({ eventType: 'DriverArrived', aggregateId: 'missing-ride' }) as any),
@@ -150,7 +155,8 @@ describe('PushNotificationConsumer', () => {
     const ride = makeRide({ driverId: 'driver-1', status: 'DRIVER_ASSIGNED' });
     const db = makeDbMock({ rideRows: [[ride]], tokenRows: [[makeToken()]] });
     const firebaseApp = { name: 'fake-app' };
-    const consumer = new PushNotificationConsumer(db as any, firebaseApp as any);
+    const metrics = makeMetricsMock();
+    const consumer = new PushNotificationConsumer(db as any, firebaseApp as any, metrics as any);
 
     await consumer.process(
       makeJob({ eventType: 'RideAssigned', payload: { rideId: 'ride-1', driverId: 'driver-1' } }) as any,
@@ -165,6 +171,8 @@ describe('PushNotificationConsumer', () => {
       notification: { title: 'Driver on the way', body: 'A driver has been assigned to your ride and is heading your way.' },
       data: { rideId: 'ride-1', eventType: 'RideAssigned' },
     });
+    // push_notifications_total: a real send attempt is counted under outcome='sent'.
+    expect(metrics.pushNotificationsTotal.inc).toHaveBeenCalledWith({ outcome: 'sent' });
   });
 
   it('RideDriverNotified pushes to the offered driver named in the payload, not rides.driverId', async () => {
@@ -173,7 +181,7 @@ describe('PushNotificationConsumer', () => {
     const token = makeToken({ userId: 'driver-user-offered', token: 'driver-fcm-token' });
     const db = makeDbMock({ rideRows: [[ride]], driverRows: [[driver]], tokenRows: [[token]] });
     const firebaseApp = { name: 'fake-app' };
-    const consumer = new PushNotificationConsumer(db as any, firebaseApp as any);
+    const consumer = new PushNotificationConsumer(db as any, firebaseApp as any, makeMetricsMock() as any);
 
     await consumer.process(
       makeJob({ eventType: 'RideDriverNotified', payload: { rideId: 'ride-1', driverId: 'driver-offered' } }) as any,
@@ -188,7 +196,7 @@ describe('PushNotificationConsumer', () => {
 
   it('RideDriverNotified with no payload.driverId skips delivery without a drivers lookup', async () => {
     const db = makeDbMock({ rideRows: [[makeRide()]] });
-    const consumer = new PushNotificationConsumer(db as any, {} as any);
+    const consumer = new PushNotificationConsumer(db as any, {} as any, makeMetricsMock() as any);
 
     await consumer.process(makeJob({ eventType: 'RideDriverNotified', payload: {} }) as any);
 
@@ -200,7 +208,7 @@ describe('PushNotificationConsumer', () => {
       const ride = makeRide({ driverId: 'driver-1', status: 'CANCELLED_BY_DRIVER' });
       const db = makeDbMock({ rideRows: [[ride]], tokenRows: [[makeToken()]] });
       const firebaseApp = { name: 'fake-app' };
-      const consumer = new PushNotificationConsumer(db as any, firebaseApp as any);
+      const consumer = new PushNotificationConsumer(db as any, firebaseApp as any, makeMetricsMock() as any);
 
       await consumer.process(
         makeJob({
@@ -221,7 +229,7 @@ describe('PushNotificationConsumer', () => {
       const token = makeToken({ userId: 'driver-user-1', token: 'driver-fcm-token' });
       const db = makeDbMock({ rideRows: [[ride]], driverRows: [[driver]], tokenRows: [[token]] });
       const firebaseApp = { name: 'fake-app' };
-      const consumer = new PushNotificationConsumer(db as any, firebaseApp as any);
+      const consumer = new PushNotificationConsumer(db as any, firebaseApp as any, makeMetricsMock() as any);
 
       await consumer.process(
         makeJob({
@@ -243,7 +251,7 @@ describe('PushNotificationConsumer', () => {
       const ride = makeRide({ driverId: null, status: 'CANCELLED_BY_USER' });
       const db = makeDbMock({ rideRows: [[ride]] });
       const firebaseApp = { name: 'fake-app' };
-      const consumer = new PushNotificationConsumer(db as any, firebaseApp as any);
+      const consumer = new PushNotificationConsumer(db as any, firebaseApp as any, makeMetricsMock() as any);
 
       await consumer.process(
         makeJob({
@@ -259,23 +267,27 @@ describe('PushNotificationConsumer', () => {
   it('skips sending (no throw) when the recipient has no registered device tokens', async () => {
     const db = makeDbMock({ rideRows: [[makeRide({ status: 'DRIVER_ARRIVED' })]], tokenRows: [[]] });
     const firebaseApp = { name: 'fake-app' };
-    const consumer = new PushNotificationConsumer(db as any, firebaseApp as any);
+    const metrics = makeMetricsMock();
+    const consumer = new PushNotificationConsumer(db as any, firebaseApp as any, metrics as any);
 
     await expect(
       consumer.process(makeJob({ eventType: 'DriverArrived', payload: { rideId: 'ride-1' } }) as any),
     ).resolves.toBeUndefined();
     expect(sendMock).not.toHaveBeenCalled();
+    expect(metrics.pushNotificationsTotal.inc).toHaveBeenCalledWith({ outcome: 'skipped_no_token' });
   });
 
   it('skips sending (no throw, no messaging call) when FIREBASE_ADMIN is not configured (null)', async () => {
     const db = makeDbMock({ rideRows: [[makeRide({ status: 'DRIVER_ARRIVED' })]], tokenRows: [[makeToken()]] });
-    const consumer = new PushNotificationConsumer(db as any, null);
+    const metrics = makeMetricsMock();
+    const consumer = new PushNotificationConsumer(db as any, null, metrics as any);
 
     await expect(
       consumer.process(makeJob({ eventType: 'DriverArrived', payload: { rideId: 'ride-1' } }) as any),
     ).resolves.toBeUndefined();
     expect(admin.messaging).not.toHaveBeenCalled();
     expect(sendMock).not.toHaveBeenCalled();
+    expect(metrics.pushNotificationsTotal.inc).toHaveBeenCalledWith({ outcome: 'skipped_not_configured' });
   });
 
   it('sends to every registered token for the recipient, independently', async () => {
@@ -286,7 +298,7 @@ describe('PushNotificationConsumer', () => {
       tokenRows: [[tokenA, tokenB]],
     });
     const firebaseApp = { name: 'fake-app' };
-    const consumer = new PushNotificationConsumer(db as any, firebaseApp as any);
+    const consumer = new PushNotificationConsumer(db as any, firebaseApp as any, makeMetricsMock() as any);
 
     await consumer.process(makeJob({ eventType: 'RideStarted', payload: { rideId: 'ride-1' } }) as any);
 
@@ -305,7 +317,8 @@ describe('PushNotificationConsumer', () => {
     sendMock.mockRejectedValueOnce(Object.assign(new Error('internal error'), { code: 'messaging/internal-error' }));
     sendMock.mockResolvedValueOnce('message-id-b');
     const firebaseApp = { name: 'fake-app' };
-    const consumer = new PushNotificationConsumer(db as any, firebaseApp as any);
+    const metrics = makeMetricsMock();
+    const consumer = new PushNotificationConsumer(db as any, firebaseApp as any, metrics as any);
 
     await expect(
       consumer.process(makeJob({ eventType: 'RideStarted', payload: { rideId: 'ride-1' } }) as any),
@@ -313,6 +326,9 @@ describe('PushNotificationConsumer', () => {
 
     expect(sendMock).toHaveBeenCalledTimes(2);
     expect(db.delete).not.toHaveBeenCalled();
+    // One token failed, one succeeded - push_notifications_total reflects both outcomes.
+    expect(metrics.pushNotificationsTotal.inc).toHaveBeenCalledWith({ outcome: 'failed' });
+    expect(metrics.pushNotificationsTotal.inc).toHaveBeenCalledWith({ outcome: 'sent' });
   });
 
   it('deletes a token FCM reports as permanently unregistered, but leaves other failure codes alone', async () => {
@@ -325,7 +341,7 @@ describe('PushNotificationConsumer', () => {
       Object.assign(new Error('not registered'), { code: 'messaging/registration-token-not-registered' }),
     );
     const firebaseApp = { name: 'fake-app' };
-    const consumer = new PushNotificationConsumer(db as any, firebaseApp as any);
+    const consumer = new PushNotificationConsumer(db as any, firebaseApp as any, makeMetricsMock() as any);
 
     await consumer.process(makeJob({ eventType: 'RideCompleted', payload: { rideId: 'ride-1' } }) as any);
 

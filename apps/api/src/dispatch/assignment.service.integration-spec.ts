@@ -16,6 +16,10 @@ describe('AssignmentService (integration)', () => {
   let assignmentService: AssignmentService;
   let dispatchService: DispatchService;
   let fakeQueue: { add: jest.Mock };
+  // Metrics stand-in - this suite is about the accept/reject concurrency races, not metrics;
+  // only rideAssignmentDurationSeconds.observe() is ever touched by AssignmentService#accept.
+  // Declared here (not just inside beforeAll) so individual tests can assert against it too.
+  const metricsStub = { rideAssignmentDurationSeconds: { observe: jest.fn() } };
 
   // Reset per test (afterEach cleans up and clears these) so leftover AVAILABLE drivers from one
   // test never interfere with another test's nearest-candidate assertions.
@@ -38,7 +42,7 @@ describe('AssignmentService (integration)', () => {
     const outboxService = new OutboxService();
     const driverMatcher = new DriverMatcherService(db as any);
     dispatchService = new DispatchService(db as any, outboxService, driverMatcher, {} as any);
-    assignmentService = new AssignmentService(db as any, outboxService, dispatchService);
+    assignmentService = new AssignmentService(db as any, outboxService, dispatchService, metricsStub as any);
 
     // Root-cause fix for docs/open-items.md #17/#18: if a PREVIOUS run of this file was
     // interrupted (SIGKILL/timeout/OOM) between seeding its fixtures and its own afterEach, the
@@ -64,6 +68,7 @@ describe('AssignmentService (integration)', () => {
   });
 
   afterEach(async () => {
+    metricsStub.rideAssignmentDurationSeconds.observe.mockClear();
     if (rideIds.length > 0) {
       // outbox_events was missing from this cleanup before this task (not the cause of #17/#18,
       // but accumulating unboundedly across runs all the same - accept()/reject() both call
@@ -240,6 +245,11 @@ describe('AssignmentService (integration)', () => {
 
     await assignmentService.accept(ride.id, driverA.id);
 
+    // ride_assignment_duration_seconds observed exactly once, for the successful accept (the
+    // rejected second accept below never reaches that point in the method).
+    expect(metricsStub.rideAssignmentDurationSeconds.observe).toHaveBeenCalledTimes(1);
+    expect(metricsStub.rideAssignmentDurationSeconds.observe).toHaveBeenCalledWith(expect.any(Number));
+
     await expect(assignmentService.accept(ride.id, driverC.id)).rejects.toMatchObject({
       response: { code: 'RIDE_ALREADY_ASSIGNED' },
     });
@@ -247,6 +257,9 @@ describe('AssignmentService (integration)', () => {
     const [current] = await db.select().from(rides).where(eq(rides.id, ride.id));
     expect(current.status).toBe('DRIVER_ASSIGNED');
     expect(current.driverId).toBe(driverA.id);
+
+    // Still exactly one observation - the rejected second accept did not add another.
+    expect(metricsStub.rideAssignmentDurationSeconds.observe).toHaveBeenCalledTimes(1);
   });
 
   it('races the same driver across two different rides: exactly one wins, the other fails with DRIVER_NOT_AVAILABLE and rolls back', async () => {

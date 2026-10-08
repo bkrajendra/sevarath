@@ -18,6 +18,7 @@ import { CampusModule } from './campus/campus.module';
 import { AdminModule } from './admin/admin.module';
 import { EventsModule } from './events/events.module';
 import { CommonModule } from './common/common.module';
+import { MetricsModule } from './metrics/metrics.module';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { CommonModule } from './common/common.module';
       },
     }),
     DrizzleModule,
+    MetricsModule,
     AuthModule,
     UsersModule,
     HealthModule,
