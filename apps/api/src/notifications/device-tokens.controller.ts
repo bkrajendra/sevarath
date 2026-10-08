@@ -22,11 +22,12 @@ export class DeviceTokensController {
 
   @Post()
   @ApiOkResponse({ type: DeviceTokenResponseDto })
-  register(
+  async register(
     @CurrentUser() currentUser: RequestUser,
     @Body() dto: RegisterDeviceTokenDto,
-  ): Promise<DeviceToken> {
-    return this.deviceTokensService.register(currentUser.userId, dto.token, dto.platform);
+  ): Promise<DeviceTokenResponseDto> {
+    const row = await this.deviceTokensService.register(currentUser.userId, dto.token, dto.platform);
+    return toDeviceTokenResponse(row);
   }
 
   /**
@@ -44,4 +45,21 @@ export class DeviceTokensController {
   ): Promise<void> {
     await this.deviceTokensService.unregister(currentUser.userId, dto.token);
   }
+}
+
+/**
+ * `device_tokens.token` is the literal FCM registration token - never return it (see
+ * docs/open-items.md and `DeviceTokenResponseDto`'s own doc comment). The caller already knows
+ * it (they just sent it in the request body); nothing in this codebase's actual usage needs it
+ * echoed back, so it's stripped here the same way `users.controller.ts#toUserResponse` strips
+ * `passwordHash`/`firebaseUid`.
+ */
+function toDeviceTokenResponse(row: DeviceToken): DeviceTokenResponseDto {
+  return {
+    id: row.id,
+    userId: row.userId,
+    platform: row.platform,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
 }

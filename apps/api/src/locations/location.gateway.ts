@@ -10,6 +10,7 @@ import {
   WebSocketServer,
 } from '@nestjs/websockets';
 import { and, desc, eq, inArray, notInArray } from 'drizzle-orm';
+import { SkipThrottle } from '@nestjs/throttler';
 import type { Server, Socket } from 'socket.io';
 import { DRIZZLE, type DrizzleDb } from '../db/drizzle.module';
 import { rides, type Ride } from '../db/schema';
@@ -177,7 +178,21 @@ export function driverRoom(driverId: string): string {
  * CORS is left permissive (`origin: true, credentials: true`), mirroring `main.ts`'s existing
  * posture - this is pre-production/internal; tighten to an explicit origin allowlist before
  * any public-facing deployment.
+ *
+ * `@SkipThrottle()` (docs/open-items.md, Phase 9 hardening/rate-limiting): the global
+ * `ThrottlerGuard` (app.module.ts) is HTTP-request-shaped (it reads `req.ip`/`req.headers` off
+ * `context.switchToHttp()`), and Nest's guard pipeline *does* run it against this gateway's own
+ * `@SubscribeMessage('driver.location')` handler (unlike `handleConnection`/`handleDisconnect`,
+ * which are plain lifecycle hooks Nest invokes directly, never through the guard pipeline, so
+ * the connection handshake was never going to be touched by this guard either way - rate-
+ * limiting *that* is explicitly out of scope for this task, see the WebSocket-auth-hardening
+ * item below instead). Without this, every `driver.location` message would 500 inside the
+ * guard itself (`req` is `undefined` in a WS execution context) rather than being usefully rate
+ * limited - rate-limiting a high-frequency (3-15s cadence) authenticated GPS push stream is a
+ * different problem from this task's actual target (unauthenticated HTTP brute-force), so it's
+ * skipped outright rather than mis-applied.
  */
+@SkipThrottle()
 @Injectable()
 @WebSocketGateway({ namespace: '/ws', cors: { origin: true, credentials: true } })
 export class LocationGateway implements OnGatewayConnection, OnGatewayDisconnect {

@@ -77,11 +77,32 @@ describe('Device token registration (e2e, real Postgres)', () => {
       .send({ token, platform: 'ANDROID' })
       .expect(201);
 
-    expect(res.body).toMatchObject({ userId: userAId, token, platform: 'ANDROID' });
+    expect(res.body).toMatchObject({ userId: userAId, platform: 'ANDROID' });
 
     const [row] = await db.select().from(deviceTokens).where(eq(deviceTokens.token, token));
     expect(row).toBeDefined();
     expect(row.userId).toBe(userAId);
+  });
+
+  /**
+   * Regression test (this task's leak audit, docs/open-items.md): the response body must never
+   * echo back the literal FCM registration `token` - the caller already has it (they just sent
+   * it), so there's no legitimate reason to put it back on the wire, and this is the same leak
+   * class as #45 (`users.controller.ts`'s `passwordHash`/`firebaseUid`).
+   */
+  it('never returns the raw token in the response body', async () => {
+    const token = `devicetoken-e2e-${Date.now()}-no-token-leak`;
+
+    const res = await request(app.getHttpServer())
+      .post('/api/v1/notifications/device-tokens')
+      .set('Authorization', `Bearer ${userAToken}`)
+      .send({ token, platform: 'ANDROID' })
+      .expect(201);
+
+    expect(res.body).not.toHaveProperty('token');
+    expect(Object.keys(res.body).sort()).toEqual(
+      ['createdAt', 'id', 'platform', 'updatedAt', 'userId'].sort(),
+    );
   });
 
   it('re-registering the same token for the same user upserts (updates platform) rather than duplicating', async () => {
@@ -124,7 +145,7 @@ describe('Device token registration (e2e, real Postgres)', () => {
       .send({ token, platform: 'IOS' })
       .expect(201);
 
-    expect(reassignRes.body).toMatchObject({ userId: userBId, token, platform: 'IOS' });
+    expect(reassignRes.body).toMatchObject({ userId: userBId, platform: 'IOS' });
 
     const rows = await db.select().from(deviceTokens).where(eq(deviceTokens.token, token));
     expect(rows).toHaveLength(1);

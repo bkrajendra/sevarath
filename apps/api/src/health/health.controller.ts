@@ -1,9 +1,16 @@
 import { Controller, Get, Inject, ServiceUnavailableException, VERSION_NEUTRAL } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
+import { SkipThrottle } from '@nestjs/throttler';
 import { sql } from 'drizzle-orm';
 import { DRIZZLE, DrizzleDb } from '../db/drizzle.module';
 import { HealthRedisService } from './health-redis.service';
 
+/**
+ * Exempted from the global rate limit (docs/open-items.md) - an orchestrator/load-balancer
+ * polling `/health`/`/health/ready`/`/health/live` frequently is normal, expected traffic, not
+ * abuse, and getting 429'd here would make the orchestrator wrongly think the process is down.
+ */
+@SkipThrottle()
 @ApiTags('health')
 @Controller({ path: 'health', version: VERSION_NEUTRAL })
 export class HealthController {

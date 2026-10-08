@@ -1,5 +1,6 @@
 import { Controller, Get, Res, VERSION_NEUTRAL } from '@nestjs/common';
 import { ApiExcludeEndpoint, ApiTags } from '@nestjs/swagger';
+import { SkipThrottle } from '@nestjs/throttler';
 import type { Response } from 'express';
 import { MetricsService } from './metrics.service';
 
@@ -14,7 +15,11 @@ import { MetricsService } from './metrics.service';
  * `VERSION_NEUTRAL` + excluded from the global `/api` prefix in `main.ts` (same treatment as
  * `/health`/`/health/ready`/`/health/live`) - a metrics scraper expects a bare `/metrics` path,
  * not a versioned API route.
+ *
+ * `@SkipThrottle()` (docs/open-items.md, Phase 9 hardening/rate-limiting): a Prometheus scraper
+ * hitting this every few seconds is normal, expected traffic, not abuse.
  */
+@SkipThrottle()
 @ApiTags('metrics')
 @Controller({ path: 'metrics', version: VERSION_NEUTRAL })
 export class MetricsController {
