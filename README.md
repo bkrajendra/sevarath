@@ -1,7 +1,14 @@
-# SevaRath - Brahma Kumaris Internal EV Booking System
+<div align="center">
+  <h1><img src="docs/icon512.png" alt="" width="48" height="48" /> SevaRath</h1>
+  <p><strong>Brahma Kumaris Internal EV Booking System</strong></p>
+  <p>
+    <a href="https://github.com/bkrajendra/sevarath/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/bkrajendra/sevarath/ci.yml?branch=main&label=CI" alt="CI status" /></a>
+    <a href="https://github.com/bkrajendra/sevarath/stargazers"><img src="https://img.shields.io/github/stars/bkrajendra/sevarath?style=social" alt="GitHub stars" /></a>
+    <a href="https://github.com/bkrajendra/sevarath/graphs/contributors"><img src="https://img.shields.io/github/contributors/bkrajendra/sevarath" alt="Contributors" /></a>
+  </p>
+  <img src="docs/repo-social-preview.png" alt="SevaRath - Your Companion for Every Journey" width="100%" />
+</div>
 
-
-![SevaRath - Brahma Kumaris Internal EV Booking System](docs/slides.png)
 ## 1. Purpose
 
 Build an internal EV transportation application for use within the Shantivan and nearby premises.
