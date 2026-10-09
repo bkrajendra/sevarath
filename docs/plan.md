@@ -26,12 +26,18 @@ Track before/at the start of the relevant phase - not blocking documentation, bu
 
 | Decision | Options | Needed by |
 |---|---|---|
-| Location retention policy | Whether/how long raw driver location history is persisted beyond Redis TTL | Phase 5 |
 | On-prem Kubernetes specifics | Cluster access, ingress, CI/CD deployment target | Phase 1 |
-| Valhalla costing profile for EVs | `auto` with tuned `costing_options` vs. `motor_scooter` (closer default speed to a campus EV) - see [architecture.md §8.2](./architecture.md#82-custom-campus-road-network--ev-specific-routing) | Phase 6 |
 | Campus-private road data entry | How `campus_roads` geometry is authored/maintained (Admin-app editor vs. GIS import) and merged into the OSM extract before Valhalla's graph build | Phase 3 |
 | Public OSM extract refresh cadence | How often the regional base extract is re-pulled (separate from the Admin-triggered campus-overlay rebuild, which fires on demand) | Phase 3 |
 | Mobile OTP verification | Deferred - registration currently trusts the mobile number as entered, no SMS verification | Before production rollout |
+
+**Decided (2026-10-08, product owner review):**
+* **Campus geofence filtering (Phase 4, [open-items.md #10](./open-items.md)):** implement for real now - production's Postgres runs `postgis/postgis`, unlike the sandbox that built Phase 4 and had to skip this entirely. No longer blocked.
+* **Driver-cancel re-dispatch ([open-items.md #7/#13](./open-items.md)):** stay terminal for now (today's behavior) - re-dispatch-on-driver-cancel is real product work with a large blast radius, revisit once the system is live and this is actually observed happening, not preemptively.
+* **Refresh-token reuse response ([open-items.md #55](./open-items.md)):** confirmed - revoke every active session for the user on detecting a reused/revoked refresh token, not just the one chain. Today's implementation is correct as shipped, no change needed.
+* **Refresh-token migration rollout timing ([open-items.md #56](./open-items.md)):** no special low-traffic deployment window needed - system has no live users/drivers yet.
+* **Live-location retention:** the 45s Redis TTL cache (no persistent `driver_locations` history table) is sufficient - no change needed.
+* **Valhalla costing profile for EVs:** switching to `motor_scooter` (closer real-world speed/maneuverability match for a slow campus EV cart than generic `auto`) - this is about routing/ETA quality, not money; there is no payment/pricing concept in this app (internal fleet booking, not a paid service). A possible future "energy/cost saved" ride-history feature is unrelated to Valhalla's costing model and would be its own separate analytics feature later.
 
 **Decided (from reconciling [sevarath-booking-architecture-spec.md](./sevarath-booking-architecture-spec.md), 2026-10-07):** domain-event delivery uses a **Transactional Outbox** (`outbox_events` table, written in the same transaction as the ride-state change) published by a polling worker onto the **existing Redis/BullMQ** - not a new message broker. This repo has no ActiveMQ/RabbitMQ/Kafka (`docker-compose.yml` only has Postgres and Redis), so the booking spec's "existing broker" assumption does not apply here; its own documented fallback is what's adopted. See [architecture.md §4.3](./architecture.md#43-events--transactional-outbox).
 
