@@ -52,8 +52,19 @@ spec:
       # instead of `/socket.io` - a plausible-looking but wrong fix that still left every
       # connection falling through to the `/` catch-all below (confirmed via live pod logs:
       # zero WebSocket connections ever reached the API, even after that first fix was deployed).
+      #
+      # pathType ImplementationSpecific, not Prefix: ingress-nginx's admission webhook enforces
+      # strict character validation for Prefix/Exact paths (CVE-2022-4886 hardening) - only
+      # alphanumerics, `-`, `_`, `/` are allowed, so the literal `.` in `/socket.io` gets
+      # rejected outright ("path /socket.io cannot be used with pathType Prefix"). This was
+      # caught at `kubectl apply` time (admission webhook denial), not by this repo's own
+      # `--dry-run=client`, which only checks local schema and never calls the live cluster's
+      # webhooks - `--dry-run=server` is the one that actually would have caught this.
+      # ImplementationSpecific skips that extra validation; ingress-nginx still matches it as an
+      # ordinary prefix location (its default behavior for this pathType), so routing is
+      # unchanged.
       - path: /socket.io
-        pathType: Prefix
+        pathType: ImplementationSpecific
         backend:
           service:
             name: sevarath-api
