@@ -43,7 +43,16 @@ spec:
       # connection attempt to the admin app's nginx instead of the API, so it never upgrades
       # and driver location/ride events never reach the backend (confirmed root cause of
       # "driver not reporting position" / NO_DRIVER_AVAILABLE on 2026-10-10).
-      - path: /ws
+      #
+      # The actual HTTP/WS handshake path Socket.IO listens on is `/socket.io/` by default -
+      # ALWAYS, regardless of `@WebSocketGateway({ namespace: '/ws' })`. That `namespace` option
+      # is a logical channel the client selects *after* connecting, not an HTTP path, so a
+      # client built against ApiConfig.wsUrl (`.../ws`) still sends its handshake requests to
+      # `/socket.io/?...`, never to `/ws` itself. An earlier version of this file routed `/ws`
+      # instead of `/socket.io` - a plausible-looking but wrong fix that still left every
+      # connection falling through to the `/` catch-all below (confirmed via live pod logs:
+      # zero WebSocket connections ever reached the API, even after that first fix was deployed).
+      - path: /socket.io
         pathType: Prefix
         backend:
           service:

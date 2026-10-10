@@ -1,10 +1,21 @@
 import { useEffect, useRef } from 'react';
-import { Map as MapLibreMap, Marker, NavigationControl, Popup } from 'maplibre-gl';
+import { Map as MapLibreMap, Marker, NavigationControl, Popup, setWorkerUrl } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { formatRelativeTime } from '@/lib/format';
 import type { components } from '@/types/api';
 
 type LiveMapDriver = components['schemas']['LiveMapDriverResponseDto'];
+
+// maplibre-gl's default worker-loading strategy expects a sibling
+// `maplibre-gl-worker.mjs` file next to wherever its own bundled module ends up being served
+// from (derived from `import.meta.url`) - Vite/Rollup's single-chunk build for this app never
+// emits that file, so the request 404s, and this app's SPA-fallback nginx config
+// (`try_files ... /index.html`) turns that 404 into a 200 of index.html's HTML, which the
+// browser then fails to parse as a worker module ("Worker failed to load. Check that the
+// worker URL is correct."). Pointing it at the CDN build for the exact pinned version sidesteps
+// needing a custom Vite copy step - bump this string together with the `maplibre-gl` version
+// in package.json.
+setWorkerUrl('https://unpkg.com/maplibre-gl@6.13.0/dist/maplibre-gl-worker.mjs');
 
 // Same public OpenFreeMap style + default campus center/zoom the mobile app's
 // CampusMapPreview uses (campus_map_preview.dart) - no self-hosted Martin tile server is
