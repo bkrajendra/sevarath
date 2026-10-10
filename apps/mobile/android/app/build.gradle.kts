@@ -41,6 +41,24 @@ android {
         versionName = flutter.versionName
     }
 
+    // Two installable apps from one codebase (docs/architecture.md §7.2): `user` keeps today's
+    // applicationId/name unchanged (no suffix) so it stays the same app for anyone who already
+    // installed it; `driver` gets a distinct applicationId (installable side by side) and app
+    // name. Paired with `lib/main_user.dart`/`lib/main_driver.dart` via
+    // `flutter build apk --flavor user -t lib/main_user.dart` (or `driver`/`main_driver.dart`).
+    flavorDimensions += "app"
+    productFlavors {
+        create("user") {
+            dimension = "app"
+            resValue("string", "app_name", "SevaRath")
+        }
+        create("driver") {
+            dimension = "app"
+            applicationIdSuffix = ".driver"
+            resValue("string", "app_name", "SevaRath Driver")
+        }
+    }
+
     signingConfigs {
         if (hasReleaseSigning) {
             create("release") {

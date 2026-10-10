@@ -45,17 +45,25 @@ jobs:
           keyPassword=$ANDROID_KEY_PASSWORD
           EOF
 
-      - run: flutter build apk --release --dart-define=API_BASE_URL=https://sevarath.rajendrakhope.com/api/v1
+      # Two installable apps from one codebase (android/app/build.gradle.kts's productFlavors) -
+      # build both so every release carries a rider and a driver APK. `user` keeps the
+      # unsuffixed applicationId (same app anyone already installed); `driver` is a distinct
+      # applicationId, installable side by side.
+      - run: flutter build apk --release --flavor user -t lib/main_user.dart --dart-define=API_BASE_URL=https://sevarath.rajendrakhope.com/api/v1
+      - run: flutter build apk --release --flavor driver -t lib/main_driver.dart --dart-define=API_BASE_URL=https://sevarath.rajendrakhope.com/api/v1
 
-      - name: Rename APK
+      - name: Rename APKs
         run: |
           mkdir -p dist
-          cp build/app/outputs/flutter-apk/app-release.apk "dist/SevaRath-${{ inputs.tag_name }}.apk"
+          cp build/app/outputs/flutter-apk/app-user-release.apk "dist/SevaRath-${{ inputs.tag_name }}.apk"
+          cp build/app/outputs/flutter-apk/app-driver-release.apk "dist/SevaRath-Driver-${{ inputs.tag_name }}.apk"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ inputs.tag_name }}
-          files: apps/mobile/dist/SevaRath-${{ inputs.tag_name }}.apk
+          files: |
+            apps/mobile/dist/SevaRath-${{ inputs.tag_name }}.apk
+            apps/mobile/dist/SevaRath-Driver-${{ inputs.tag_name }}.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/config/flavor.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import 'providers/auth_provider.dart';
@@ -102,11 +103,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           )
                         : const Text('Log In'),
                   ),
-                  const SizedBox(height: 16),
-                  TextButton(
-                    onPressed: () => context.push('/register'),
-                    child: const Text("Don't have an account? Create one"),
-                  ),
+                  // Drivers are provisioned by an Admin, not self-registered - the driver
+                  // flavor has no /register route at all (see driver_router.dart).
+                  if (!FlavorConfig.isDriver) ...[
+                    const SizedBox(height: 16),
+                    TextButton(
+                      onPressed: () => context.push('/register'),
+                      child: const Text("Don't have an account? Create one"),
+                    ),
+                  ],
                 ],
               ),
             ),

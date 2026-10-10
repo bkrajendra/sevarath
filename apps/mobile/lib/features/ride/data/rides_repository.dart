@@ -90,4 +90,53 @@ class RidesRepository {
       throw RideException(_messageForRideError(e));
     }
   }
+
+  // --- Driver-only actions (dispatch.controller.ts / rides.controller.ts, @Roles('DRIVER')) ---
+
+  /// POST /rides/:id/accept - DispatchController, not RidesController, but grouped here since
+  /// from the client's perspective it's just another ride-lifecycle action.
+  Future<Ride> acceptRide(String id) async {
+    try {
+      final response = await _apiClient.dio.post('/rides/$id/accept');
+      return Ride.fromJson(response.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      throw RideException(_messageForRideError(e));
+    }
+  }
+
+  /// POST /rides/:id/reject - 204 No Content on success (DispatchController).
+  Future<void> rejectRide(String id) async {
+    try {
+      await _apiClient.dio.post('/rides/$id/reject');
+    } on DioException catch (e) {
+      throw RideException(_messageForRideError(e));
+    }
+  }
+
+  Future<Ride> markArrived(String id) async {
+    try {
+      final response = await _apiClient.dio.post('/rides/$id/arrived');
+      return Ride.fromJson(response.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      throw RideException(_messageForRideError(e));
+    }
+  }
+
+  Future<Ride> startRide(String id) async {
+    try {
+      final response = await _apiClient.dio.post('/rides/$id/start');
+      return Ride.fromJson(response.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      throw RideException(_messageForRideError(e));
+    }
+  }
+
+  Future<Ride> completeRide(String id) async {
+    try {
+      final response = await _apiClient.dio.post('/rides/$id/complete');
+      return Ride.fromJson(response.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      throw RideException(_messageForRideError(e));
+    }
+  }
 }
