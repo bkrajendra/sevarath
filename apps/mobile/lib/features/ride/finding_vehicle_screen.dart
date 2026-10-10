@@ -36,7 +36,8 @@ class _FindingVehicleScreenState extends ConsumerState<FindingVehicleScreen>
 
   @override
   Widget build(BuildContext context) {
-    final ride = ref.watch(rideControllerProvider).ride;
+    final rideState = ref.watch(rideControllerProvider);
+    final ride = rideState.ride;
 
     ref.listen(rideControllerProvider, (previous, next) {
       final status = next.ride?.status;
@@ -116,13 +117,24 @@ class _FindingVehicleScreenState extends ConsumerState<FindingVehicleScreen>
                 ),
               ),
               const Spacer(),
+              if (rideState.errorMessage != null) ...[
+                Text(
+                  rideState.errorMessage!,
+                  style: AppTextStyles.secondary.copyWith(color: AppColors.error),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 12),
+              ],
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton(
                   onPressed: () async {
-                    final cancelled = await ref.read(rideControllerProvider.notifier).cancelRide();
-                    if (cancelled && context.mounted) context.pop();
+                    await ref.read(rideControllerProvider.notifier).cancelRide();
+                    // Even a failed cancel (ride already moved to a terminal state server-side)
+                    // leaves this screen - the controller has just re-synced to that real state,
+                    // so staying here would only show a stale "Finding a nearby vehicle" spinner.
+                    if (context.mounted) context.pop();
                   },
                   style: OutlinedButton.styleFrom(foregroundColor: AppColors.error),
                   child: const Text('Cancel Request'),

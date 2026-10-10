@@ -55,9 +55,12 @@ final rideSocketServiceProvider = Provider<RideSocketService>((ref) {
 /// and exposes live driver location for the map. Booking screens (FindingVehicle, DriverEnRoute,
 /// OnTheWay) are pure consumers of [RideState.ride]'s status - none of them poll or hold their
 /// own copy of the ride.
+const _pollInterval = Duration(seconds: 4);
+
 class RideController extends Notifier<RideState> {
   StreamSubscription<Map<String, dynamic>>? _eventsSub;
   StreamSubscription<DriverLocationUpdate>? _locationSub;
+  Timer? _pollTimer;
 
   @override
   RideState build() {
@@ -69,11 +72,25 @@ class RideController extends Notifier<RideState> {
       (update) => state = state.copyWith(driverLocation: update),
     );
     socket.connect();
+    // Safety net alongside the WS-driven refresh above: a dropped/never-connected socket (e.g.
+    // the 2026-10-10 ingress routing incident, where /ws silently never reached the backend)
+    // must not leave a rider stuck forever on a screen like FindingVehicleScreen with no way to
+    // learn their ride ended - this polls REST independently, same pattern already proven on
+    // the driver side (DriverOfferController).
+    _pollTimer?.cancel();
+    _pollTimer = Timer.periodic(_pollInterval, (_) => unawaited(_pollActiveRide()));
     ref.onDispose(() {
       _eventsSub?.cancel();
       _locationSub?.cancel();
+      _pollTimer?.cancel();
     });
     return const RideState();
+  }
+
+  Future<void> _pollActiveRide() async {
+    final ride = state.ride;
+    if (ride == null || ride.isTerminal) return;
+    await _refresh(ride.id);
   }
 
   RidesRepository get _repository => ref.read(ridesRepositoryProvider);
@@ -148,7 +165,12 @@ class RideController extends Notifier<RideState> {
       state = state.copyWith(ride: ride, clearError: true);
       return true;
     } on RideException catch (e) {
+      // The backend rejects this once the ride has already left a cancellable state
+      // (RIDE_NOT_CANCELLABLE - e.g. it already became NO_DRIVER_AVAILABLE server-side but this
+      // client never heard about it over WS). Re-fetch so the UI catches up to reality instead
+      // of looking stuck on a "Cancel" button that silently does nothing every time it's pressed.
       state = state.copyWith(errorMessage: e.message);
+      await _refresh(id);
       return false;
     }
   }

@@ -120,6 +120,11 @@ export function DriversPage() {
                             Suspend
                           </Button>
                         )}
+                        {driver.status === 'SUSPENDED' && (
+                          <Button size="sm" onClick={() => approveDriver.mutate(driver.id)}>
+                            Reactivate
+                          </Button>
+                        )}
                         <select
                           className={cn(
                             'h-8 rounded-md border border-slate-300 bg-white px-2 text-xs',

@@ -7,6 +7,13 @@ metadata:
     kubernetes.io/ingress.class: nginx
     cert-manager.io/cluster-issuer: letsencrypt-prod
     nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    # The driver/rider apps hold a socket.io connection open indefinitely (locations/
+    # location.gateway.ts, namespace /ws) - nginx-ingress auto-detects the Upgrade header and
+    # proxies it as a WebSocket, but its default proxy-read/send-timeout (60s) would still kill
+    # an otherwise-idle socket between GPS pushes. Raised to 1h so a connection only drops on
+    # an actual network issue, not an idle timer.
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
 spec:
   ingressClassName: nginx
   tls:
@@ -25,6 +32,18 @@ spec:
             port:
               number: 3000
       - path: /health
+        pathType: Prefix
+        backend:
+          service:
+            name: sevarath-api
+            port:
+              number: 3000
+      # Real-time gateway (apps/mobile's ApiConfig.wsUrl, locations/location.gateway.ts) -
+      # without this rule, the catch-all `/` path below silently sends every WebSocket
+      # connection attempt to the admin app's nginx instead of the API, so it never upgrades
+      # and driver location/ride events never reach the backend (confirmed root cause of
+      # "driver not reporting position" / NO_DRIVER_AVAILABLE on 2026-10-10).
+      - path: /ws
         pathType: Prefix
         backend:
           service:
