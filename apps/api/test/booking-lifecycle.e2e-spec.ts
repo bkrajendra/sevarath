@@ -198,6 +198,8 @@ describe('Booking lifecycle (e2e, real Postgres + Redis, real dispatch)', () => 
     const rideId = createRes.body.id;
     expect(createRes.body.status).toBe('SEARCHING_DRIVER');
     expect(createRes.body.userId).toBe(riderId);
+    expect(createRes.body.driver).toBeNull();
+    expect(createRes.body.vehicleCode).toBeNull();
 
     // Step 3: RidesService#create's 'ride.requested' emit is fire-and-forget (open-items.md
     // #9) - the real DispatchService listener runs the real DriverMatcherService query and
@@ -219,6 +221,16 @@ describe('Booking lifecycle (e2e, real Postgres + Redis, real dispatch)', () => 
       .expect(201);
     expect(acceptRes.body.status).toBe('DRIVER_ASSIGNED');
     expect(acceptRes.body.driverId).toBe(driverId);
+
+    // The rider's own GET /rides/:id (what the mobile app actually calls) must embed a driver
+    // summary once assigned - the rider has no other authorized way to learn this (GET
+    // /drivers/:id is ADMIN-only), see rides.controller.ts#enrich.
+    const riderViewRes = await request(app.getHttpServer())
+      .get(`/api/v1/rides/${rideId}`)
+      .set('Authorization', `Bearer ${riderToken}`)
+      .expect(200);
+    expect(riderViewRes.body.driver).toMatchObject({ id: driverId, driverCode: expect.any(String) });
+    expect(riderViewRes.body.vehicleCode).toEqual(expect.any(String));
 
     // Step 5: arrived -> start -> complete, each as the driver, matching
     // ride-state-machine.ts's declared transitions.

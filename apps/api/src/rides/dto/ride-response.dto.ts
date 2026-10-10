@@ -15,11 +15,25 @@ const RIDE_STATUS_VALUES = [
   'NO_DRIVER_AVAILABLE',
 ] as const;
 
+/**
+ * Lightweight driver summary embedded on an assigned ride, so a rider client can show who's
+ * coming without a separate call - `GET /drivers/:id` is ADMIN-only (drivers.controller.ts),
+ * so there is no other authorized way for a rider to learn their own assigned driver's name.
+ */
+export class RideDriverSummaryDto {
+  @ApiProperty() id!: string;
+  @ApiProperty() name!: string;
+  @ApiProperty() mobile!: string;
+  @ApiProperty() driverCode!: string;
+}
+
 export class RideResponseDto {
   @ApiProperty() id!: string;
   @ApiProperty() userId!: string;
   @ApiProperty({ nullable: true, type: String }) driverId!: string | null;
   @ApiProperty({ nullable: true, type: String }) vehicleId!: string | null;
+  @ApiProperty({ nullable: true, type: RideDriverSummaryDto }) driver!: RideDriverSummaryDto | null;
+  @ApiProperty({ nullable: true, type: String }) vehicleCode!: string | null;
 
   @ApiProperty() pickupLatitude!: number;
   @ApiProperty() pickupLongitude!: number;
