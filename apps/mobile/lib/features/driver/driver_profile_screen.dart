@@ -38,7 +38,11 @@ class DriverProfileScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 24),
           const _MenuTile(icon: Icons.help_outline_rounded, label: 'Help & Support'),
-          const _MenuTile(icon: Icons.info_outline_rounded, label: 'About Sevarath'),
+          _MenuTile(
+            icon: Icons.info_outline_rounded,
+            label: 'About Sevarath',
+            onTap: () => context.push('/about'),
+          ),
           const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
@@ -58,10 +62,11 @@ class DriverProfileScreen extends ConsumerWidget {
 }
 
 class _MenuTile extends StatelessWidget {
-  const _MenuTile({required this.icon, required this.label});
+  const _MenuTile({required this.icon, required this.label, this.onTap});
 
   final IconData icon;
   final String label;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -70,7 +75,7 @@ class _MenuTile extends StatelessWidget {
       leading: Icon(icon, color: AppColors.brandGreen),
       title: Text(label, style: AppTextStyles.body),
       trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textSecondary),
-      onTap: () {},
+      onTap: onTap ?? () {},
     );
   }
 }

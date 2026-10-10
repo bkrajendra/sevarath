@@ -43,6 +43,8 @@ dependencies:
   flutter_secure_storage: ^11.2.0
   socket_io_client: ^3.1.2
   flutter_tts: ^4.2.5
+  package_info_plus: ^10.2.2
+  url_launcher: ^6.3.3
 
 dev_dependencies:
   flutter_test:

@@ -17,6 +17,7 @@ import '../../features/ride/ride_details_screen.dart';
 import '../../features/ride/rate_ride_screen.dart';
 import '../../features/ride/rides_screen.dart';
 import '../../features/profile/profile_screen.dart';
+import '../../features/about/about_screen.dart';
 import '../../shared/widgets/app_shell.dart';
 import 'auth_router_notifier.dart';
 
@@ -138,6 +139,11 @@ final GoRouter appRouter = GoRouter(
       path: '/rate-ride',
       parentNavigatorKey: rootNavigatorKey,
       builder: (context, state) => const RateRideScreen(),
+    ),
+    GoRoute(
+      path: '/about',
+      parentNavigatorKey: rootNavigatorKey,
+      builder: (context, state) => const AboutScreen(),
     ),
   ],
 );

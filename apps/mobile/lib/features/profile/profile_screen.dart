@@ -68,9 +68,10 @@ class ProfileScreen extends ConsumerWidget {
             label: 'Help & Support',
           ),
           const _MenuTile(icon: Icons.settings_outlined, label: 'App Settings'),
-          const _MenuTile(
+          _MenuTile(
             icon: Icons.info_outline_rounded,
             label: 'About Sevarath',
+            onTap: () => context.push('/about'),
           ),
           const SizedBox(height: 16),
           SizedBox(

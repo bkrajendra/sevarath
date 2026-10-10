@@ -8,6 +8,7 @@ import '../../features/splash/splash_screen.dart';
 import '../../features/driver/driver_home_screen.dart';
 import '../../features/driver/driver_profile_screen.dart';
 import '../../features/driver/incoming_offer_screen.dart';
+import '../../features/about/about_screen.dart';
 import '../../shared/widgets/driver_app_shell.dart';
 import 'auth_router_notifier.dart';
 
@@ -74,6 +75,11 @@ final GoRouter driverRouter = GoRouter(
       path: '/driver/incoming-offer',
       parentNavigatorKey: driverRootNavigatorKey,
       builder: (context, state) => const IncomingOfferScreen(),
+    ),
+    GoRoute(
+      path: '/about',
+      parentNavigatorKey: driverRootNavigatorKey,
+      builder: (context, state) => const AboutScreen(),
     ),
   ],
 );
