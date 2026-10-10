@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { TableSkeleton } from '@/components/table-skeleton';
 import { useCreateVehicle, useVehicles } from '@/hooks/useVehicles';
 
 const statusVariant = {
@@ -85,7 +86,7 @@ export function VehiclesPage() {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <p className="text-sm text-muted-foreground">Loading vehicles…</p>
+            <TableSkeleton columns={5} />
           ) : (
             <Table>
               <TableHeader>

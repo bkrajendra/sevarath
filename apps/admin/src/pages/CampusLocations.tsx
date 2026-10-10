@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { TableSkeleton } from '@/components/table-skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CampusLocationsMap } from '@/components/campus-locations-map';
 import { cn } from '@/lib/cn';
@@ -133,7 +134,7 @@ export function CampusLocationsPage() {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <p className="text-sm text-muted-foreground">Loading locations…</p>
+            <TableSkeleton columns={5} />
           ) : (
             <Tabs defaultValue="list">
               <TabsList>

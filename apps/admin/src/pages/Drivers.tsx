@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { TableSkeleton } from '@/components/table-skeleton';
 import { cn } from '@/lib/cn';
 import {
   useApproveDriver,
@@ -29,7 +30,20 @@ function CopyButton({ value, label }: { value: string; label: string }) {
         setTimeout(() => setCopied(false), 1500);
       }}
     >
-      {copied ? <Check className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3" />}
+      <span className="relative inline-flex size-3 items-center justify-center">
+        <Check
+          className={cn(
+            'absolute h-3 w-3 text-emerald-600 transition-all duration-150',
+            copied ? 'scale-100 opacity-100' : 'scale-50 opacity-0',
+          )}
+        />
+        <Copy
+          className={cn(
+            'absolute h-3 w-3 transition-all duration-150',
+            copied ? 'scale-50 opacity-0' : 'scale-100 opacity-100',
+          )}
+        />
+      </span>
       {copied ? 'Copied' : label}
     </button>
   );
@@ -137,7 +151,7 @@ export function DriversPage() {
             </p>
           )}
           {provisioned && (
-            <div className="mt-4 flex flex-col gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+            <div className="mt-4 flex flex-col gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-4 animate-in fade-in-0 zoom-in-95 slide-in-from-top-1 duration-300">
               <p className="text-sm font-medium text-emerald-900">
                 Account created for {provisioned.driverCode} ({provisioned.mobile}).
                 {provisioned.emailSent
@@ -190,7 +204,7 @@ export function DriversPage() {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <p className="text-sm text-muted-foreground">Loading drivers…</p>
+            <TableSkeleton columns={5} />
           ) : (
             <Table>
               <TableHeader>

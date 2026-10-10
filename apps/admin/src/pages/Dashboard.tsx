@@ -2,7 +2,9 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Skeleton } from '@/components/ui/skeleton';
 import { LiveDriverMap } from '@/components/live-driver-map';
+import { TableSkeleton } from '@/components/table-skeleton';
 import { formatRelativeTime } from '@/lib/format';
 import { useDashboardSummary, useLiveMap } from '@/hooks/useAdminDashboard';
 
@@ -47,7 +49,14 @@ export function DashboardPage() {
           </CardHeader>
           <CardContent>
             {summaryLoading ? (
-              <p className="text-sm text-muted-foreground">Loading…</p>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="flex flex-col gap-1.5">
+                    <Skeleton className="h-5 w-16 rounded-full" />
+                    <Skeleton className="h-6 w-8" />
+                  </div>
+                ))}
+              </div>
             ) : (
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 {Object.entries(summary?.vehiclesByStatus ?? {}).map(([key, count]) => (
@@ -69,7 +78,14 @@ export function DashboardPage() {
           </CardHeader>
           <CardContent>
             {summaryLoading ? (
-              <p className="text-sm text-muted-foreground">Loading…</p>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="flex flex-col gap-1.5">
+                    <Skeleton className="h-5 w-16 rounded-full" />
+                    <Skeleton className="h-6 w-8" />
+                  </div>
+                ))}
+              </div>
             ) : (
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 {Object.entries(summary?.driversByAvailability ?? {}).map(([key, count]) => (
@@ -93,7 +109,7 @@ export function DashboardPage() {
         </CardHeader>
         <CardContent>
           {liveMapLoading ? (
-            <p className="text-sm text-muted-foreground">Loading…</p>
+            <TableSkeleton columns={6} />
           ) : (
             <Tabs defaultValue="list">
               <TabsList>

@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { TableSkeleton } from '@/components/table-skeleton';
 import { cn } from '@/lib/cn';
 import { formatDateTime } from '@/lib/format';
 import { useAdminRides, type RideStatus } from '@/hooks/useAdminRides';
@@ -127,7 +128,7 @@ export function RidesPage() {
           </div>
 
           {isLoading ? (
-            <p className="text-sm text-muted-foreground">Loading rides…</p>
+            <TableSkeleton columns={6} />
           ) : (
             <Table>
               <TableHeader>

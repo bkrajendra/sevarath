@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { TableSkeleton } from '@/components/table-skeleton';
 import { cn } from '@/lib/cn';
 import { formatDateTime } from '@/lib/format';
 import { isForbidden, useUsers, type UserRole } from '@/hooks/useUsers';
@@ -25,7 +26,20 @@ function CopyIdButton({ id }: { id: string }) {
         setTimeout(() => setCopied(false), 1500);
       }}
     >
-      {copied ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+      <span className="relative inline-flex size-3.5 items-center justify-center">
+        <Check
+          className={cn(
+            'absolute h-3.5 w-3.5 text-emerald-600 transition-all duration-150',
+            copied ? 'scale-100 opacity-100' : 'scale-50 opacity-0',
+          )}
+        />
+        <Copy
+          className={cn(
+            'absolute h-3.5 w-3.5 transition-all duration-150',
+            copied ? 'scale-50 opacity-0' : 'scale-100 opacity-100',
+          )}
+        />
+      </span>
     </button>
   );
 }
@@ -129,7 +143,7 @@ export function UsersPage() {
           </div>
 
           {isLoading ? (
-            <p className="text-sm text-muted-foreground">Loading users…</p>
+            <TableSkeleton columns={6} />
           ) : (
             <Table>
               <TableHeader>

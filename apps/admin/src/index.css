@@ -247,3 +247,18 @@
     @apply bg-background text-foreground antialiased;
   }
 }
+
+/* Reduced motion means gentler, not zero (apple-design skill) - tw-animate-css's animate-in/
+   animate-out/animate-pulse utilities don't respect this on their own, so every motion this app
+   adds (Tabs/Sheet/Dialog/Dropdown/Tooltip entrances, Skeleton's pulse, Button's press scale)
+   collapses to a near-instant opacity-only cross-fade here instead of sliding/zooming/scaling. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
