@@ -4,6 +4,8 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { CampusLocationsMap } from '@/components/campus-locations-map';
 import { cn } from '@/lib/cn';
 import {
   useCampusLocations,
@@ -67,7 +69,7 @@ export function CampusLocationsPage() {
           <form onSubmit={handleCreate} className="flex flex-wrap items-end gap-3">
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-muted-foreground">Name</label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Main Gate" className="w-48" />
+              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Main Gate" className="w-full sm:w-48" />
             </div>
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-muted-foreground">Type</label>
@@ -92,7 +94,7 @@ export function CampusLocationsPage() {
                 value={latitude}
                 onChange={(e) => setLatitude(e.target.value)}
                 placeholder="24.5925"
-                className="w-32"
+                className="w-full sm:w-32"
               />
             </div>
             <div className="flex flex-col gap-1">
@@ -101,7 +103,7 @@ export function CampusLocationsPage() {
                 value={longitude}
                 onChange={(e) => setLongitude(e.target.value)}
                 placeholder="72.1234"
-                className="w-32"
+                className="w-full sm:w-32"
               />
             </div>
             <div className="flex flex-col gap-1">
@@ -110,7 +112,7 @@ export function CampusLocationsPage() {
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="optional"
-                className="w-48"
+                className="w-full sm:w-48"
               />
             </div>
             <Button type="submit" disabled={createLocation.isPending}>
@@ -133,51 +135,62 @@ export function CampusLocationsPage() {
           {isLoading ? (
             <p className="text-sm text-muted-foreground">Loading locations…</p>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Coordinates</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {locations?.map((location) => (
-                  <TableRow key={location.id}>
-                    <TableCell className="font-medium">{location.name}</TableCell>
-                    <TableCell>{location.type}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {location.latitude.toFixed(5)}, {location.longitude.toFixed(5)}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={location.isActive ? 'success' : 'default'}>
-                        {location.isActive ? 'ACTIVE' : 'INACTIVE'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() =>
-                          setActive.mutate({ id: location.id, isActive: !location.isActive })
-                        }
-                      >
-                        {location.isActive ? 'Deactivate' : 'Activate'}
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {locations?.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground">
-                      No campus locations yet.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+            <Tabs defaultValue="list">
+              <TabsList>
+                <TabsTrigger value="list">List View</TabsTrigger>
+                <TabsTrigger value="map">Map View</TabsTrigger>
+              </TabsList>
+              <TabsContent value="list">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Coordinates</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {locations?.map((location) => (
+                      <TableRow key={location.id}>
+                        <TableCell className="font-medium">{location.name}</TableCell>
+                        <TableCell>{location.type}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {location.latitude.toFixed(5)}, {location.longitude.toFixed(5)}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={location.isActive ? 'success' : 'default'}>
+                            {location.isActive ? 'ACTIVE' : 'INACTIVE'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() =>
+                              setActive.mutate({ id: location.id, isActive: !location.isActive })
+                            }
+                          >
+                            {location.isActive ? 'Deactivate' : 'Activate'}
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {locations?.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center text-muted-foreground">
+                          No campus locations yet.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </TabsContent>
+              <TabsContent value="map">
+                <CampusLocationsMap locations={locations ?? []} />
+              </TabsContent>
+            </Tabs>
           )}
         </CardContent>
       </Card>

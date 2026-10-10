@@ -1,6 +1,7 @@
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { LiveDriverMap } from '@/components/live-driver-map';
 import { formatRelativeTime } from '@/lib/format';
 import { useDashboardSummary, useLiveMap } from '@/hooks/useAdminDashboard';
@@ -90,50 +91,58 @@ export function DashboardPage() {
           <CardTitle>Live driver positions</CardTitle>
           <p className="text-sm text-muted-foreground">Updates every 10s.</p>
         </CardHeader>
-        <CardContent className="flex flex-col gap-4">
+        <CardContent>
           {liveMapLoading ? (
             <p className="text-sm text-muted-foreground">Loading…</p>
           ) : (
-            <LiveDriverMap drivers={liveMap ?? []} />
-          )}
-          {liveMapLoading ? null : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Driver</TableHead>
-                  <TableHead>Availability</TableHead>
-                  <TableHead>Latitude</TableHead>
-                  <TableHead>Longitude</TableHead>
-                  <TableHead>Last update</TableHead>
-                  <TableHead>Current ride</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {liveMap?.map((driver) => (
-                  <TableRow key={driver.driverId}>
-                    <TableCell className="font-medium">{driver.driverCode}</TableCell>
-                    <TableCell>
-                      <Badge variant={availabilityVariant[driver.availability]}>{driver.availability}</Badge>
-                    </TableCell>
-                    <TableCell>{driver.latitude.toFixed(5)}</TableCell>
-                    <TableCell>{driver.longitude.toFixed(5)}</TableCell>
-                    <TableCell>{formatRelativeTime(driver.locationUpdatedAt)}</TableCell>
-                    <TableCell>
-                      {driver.activeRideId
-                        ? `${driver.activeRideStatus} (${driver.activeRideId.slice(0, 8)}…)`
-                        : '-'}
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {liveMap?.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted-foreground">
-                      No drivers currently reporting a position.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+            <Tabs defaultValue="list">
+              <TabsList>
+                <TabsTrigger value="list">List View</TabsTrigger>
+                <TabsTrigger value="map">Map View</TabsTrigger>
+              </TabsList>
+              <TabsContent value="list">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Driver</TableHead>
+                      <TableHead>Availability</TableHead>
+                      <TableHead>Latitude</TableHead>
+                      <TableHead>Longitude</TableHead>
+                      <TableHead>Last update</TableHead>
+                      <TableHead>Current ride</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {liveMap?.map((driver) => (
+                      <TableRow key={driver.driverId}>
+                        <TableCell className="font-medium">{driver.driverCode}</TableCell>
+                        <TableCell>
+                          <Badge variant={availabilityVariant[driver.availability]}>{driver.availability}</Badge>
+                        </TableCell>
+                        <TableCell>{driver.latitude.toFixed(5)}</TableCell>
+                        <TableCell>{driver.longitude.toFixed(5)}</TableCell>
+                        <TableCell>{formatRelativeTime(driver.locationUpdatedAt)}</TableCell>
+                        <TableCell>
+                          {driver.activeRideId
+                            ? `${driver.activeRideStatus} (${driver.activeRideId.slice(0, 8)}…)`
+                            : '-'}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {liveMap?.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center text-muted-foreground">
+                          No drivers currently reporting a position.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </TabsContent>
+              <TabsContent value="map">
+                <LiveDriverMap drivers={liveMap ?? []} />
+              </TabsContent>
+            </Tabs>
           )}
         </CardContent>
       </Card>
