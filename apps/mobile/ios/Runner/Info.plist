@@ -26,6 +26,10 @@
 		<string>$(FLUTTER_BUILD_NUMBER)</string>
 		<key>LSRequiresIPhoneOS</key>
 		<true/>
+		<!-- geolocator (pickup resolution, live tracking, driver GPS push, turn-by-turn nav) -
+		     a hard iOS requirement, the OS refuses the permission prompt entirely without this. -->
+		<key>NSLocationWhenInUseUsageDescription</key>
+		<string>SevaRath uses your location to find your pickup point and, for drivers, to share your live position with riders during a trip.</string>
 		<key>UIApplicationSceneManifest</key>
 		<dict>
 			<key>UIApplicationSupportsMultipleScenes</key>

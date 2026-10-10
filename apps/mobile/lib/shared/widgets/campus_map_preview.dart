@@ -14,6 +14,7 @@ class CampusMapPreview extends StatefulWidget {
     this.pickup,
     this.destination,
     this.vehiclePosition,
+    this.routePolyline,
     this.center = const LatLng(24.4828, 72.7820),
     this.zoom = 15.5,
   });
@@ -21,6 +22,11 @@ class CampusMapPreview extends StatefulWidget {
   final LatLng? pickup;
   final LatLng? destination;
   final LatLng? vehiclePosition;
+
+  /// A real route geometry (e.g. decoded from GET /maps/route - see
+  /// features/driver/data/maps_repository.dart) to draw instead of the straight
+  /// pickup-destination line. Needs at least 2 points.
+  final List<LatLng>? routePolyline;
   final LatLng center;
   final double zoom;
 
@@ -30,6 +36,112 @@ class CampusMapPreview extends StatefulWidget {
 
 class _CampusMapPreviewState extends State<CampusMapPreview> {
   MapLibreMapController? _controller;
+  Line? _routeLine;
+  Circle? _pickupCircle;
+  Circle? _destinationCircle;
+  Circle? _vehicleCircle;
+
+  @override
+  void didUpdateWidget(CampusMapPreview oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // addLine/addCircle only ever ran once, at the initial onStyleLoadedCallback - without this,
+    // a live vehicle position (DriverLocationUpdated over /ws) or a rerouted polyline never
+    // actually moved on the map after the first frame.
+    if (oldWidget.pickup != widget.pickup ||
+        oldWidget.destination != widget.destination ||
+        oldWidget.vehiclePosition != widget.vehiclePosition ||
+        !_samePolyline(oldWidget.routePolyline, widget.routePolyline)) {
+      _redraw();
+    }
+  }
+
+  bool _samePolyline(List<LatLng>? a, List<LatLng>? b) {
+    if (identical(a, b)) return true;
+    if (a == null || b == null) return a == b;
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i].latitude != b[i].latitude || a[i].longitude != b[i].longitude) return false;
+    }
+    return true;
+  }
+
+  Future<void> _redraw() async {
+    final controller = _controller;
+    if (controller == null) return;
+    await _clearOverlays(controller);
+    await _drawOverlays(controller);
+  }
+
+  Future<void> _clearOverlays(MapLibreMapController controller) async {
+    if (_routeLine != null) {
+      await controller.removeLine(_routeLine!);
+      _routeLine = null;
+    }
+    if (_pickupCircle != null) {
+      await controller.removeCircle(_pickupCircle!);
+      _pickupCircle = null;
+    }
+    if (_destinationCircle != null) {
+      await controller.removeCircle(_destinationCircle!);
+      _destinationCircle = null;
+    }
+    if (_vehicleCircle != null) {
+      await controller.removeCircle(_vehicleCircle!);
+      _vehicleCircle = null;
+    }
+  }
+
+  Future<void> _drawOverlays(MapLibreMapController controller) async {
+    final routeGeometry = widget.routePolyline;
+    if (routeGeometry != null && routeGeometry.length >= 2) {
+      _routeLine = await controller.addLine(
+        LineOptions(geometry: routeGeometry, lineColor: '#14524A', lineWidth: 4, lineOpacity: 0.85),
+      );
+    } else if (widget.pickup != null && widget.destination != null) {
+      _routeLine = await controller.addLine(
+        LineOptions(
+          geometry: [widget.pickup!, widget.destination!],
+          lineColor: '#14524A',
+          lineWidth: 4,
+          lineOpacity: 0.85,
+        ),
+      );
+    }
+
+    if (widget.pickup != null) {
+      _pickupCircle = await controller.addCircle(
+        CircleOptions(
+          geometry: widget.pickup,
+          circleRadius: 9,
+          circleColor: '#22A45D',
+          circleStrokeColor: '#FFFFFF',
+          circleStrokeWidth: 3,
+        ),
+      );
+    }
+    if (widget.destination != null) {
+      _destinationCircle = await controller.addCircle(
+        CircleOptions(
+          geometry: widget.destination,
+          circleRadius: 9,
+          circleColor: '#E94E3C',
+          circleStrokeColor: '#FFFFFF',
+          circleStrokeWidth: 3,
+        ),
+      );
+    }
+    if (widget.vehiclePosition != null) {
+      _vehicleCircle = await controller.addCircle(
+        CircleOptions(
+          geometry: widget.vehiclePosition,
+          circleRadius: 8,
+          circleColor: '#2F80ED',
+          circleStrokeColor: '#FFFFFF',
+          circleStrokeWidth: 3,
+        ),
+      );
+    }
+  }
 
   Future<void> _onStyleLoaded() async {
     final controller = _controller;
@@ -46,50 +158,7 @@ class _CampusMapPreviewState extends State<CampusMapPreview> {
       if (mounted) _controller?.forceResizeWebMap();
     });
 
-    if (widget.pickup != null && widget.destination != null) {
-      await controller.addLine(
-        LineOptions(
-          geometry: [widget.pickup!, widget.destination!],
-          lineColor: '#14524A',
-          lineWidth: 4,
-          lineOpacity: 0.85,
-        ),
-      );
-    }
-
-    if (widget.pickup != null) {
-      await controller.addCircle(
-        CircleOptions(
-          geometry: widget.pickup,
-          circleRadius: 9,
-          circleColor: '#22A45D',
-          circleStrokeColor: '#FFFFFF',
-          circleStrokeWidth: 3,
-        ),
-      );
-    }
-    if (widget.destination != null) {
-      await controller.addCircle(
-        CircleOptions(
-          geometry: widget.destination,
-          circleRadius: 9,
-          circleColor: '#E94E3C',
-          circleStrokeColor: '#FFFFFF',
-          circleStrokeWidth: 3,
-        ),
-      );
-    }
-    if (widget.vehiclePosition != null) {
-      await controller.addCircle(
-        CircleOptions(
-          geometry: widget.vehiclePosition,
-          circleRadius: 8,
-          circleColor: '#2F80ED',
-          circleStrokeColor: '#FFFFFF',
-          circleStrokeWidth: 3,
-        ),
-      );
-    }
+    await _drawOverlays(controller);
   }
 
   @override

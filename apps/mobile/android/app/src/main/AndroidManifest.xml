@@ -1,4 +1,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Flutter's template only declares INTERNET in the debug/profile manifest overlays (for
+         dev tooling - hot reload etc.) - release builds got NO network permission at all until
+         this was added here, meaning every release APK built so far (including the signed ones
+         already published) would fail every API/WebSocket/map-tile call on a real device. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- geolocator (pickup resolution, live tracking, driver GPS push, turn-by-turn nav) needs
+         these - also missing until now, same release-only gap as above. -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <application
         android:label="@string/app_name"
         android:name="${applicationName}"
@@ -41,6 +50,11 @@
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
+        </intent>
+        <!-- flutter_tts (voice guidance, driver navigation) - required on Android 11+ package
+             visibility to find an installed TTS engine. -->
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE"/>
         </intent>
     </queries>
 </manifest>
