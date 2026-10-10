@@ -13,6 +13,21 @@ final driverRepositoryProvider = Provider<DriverRepository>((ref) => DriverRepos
 final dispatchRepositoryProvider = Provider<DispatchRepository>((ref) => DispatchRepository());
 final ridesRepositoryProvider = Provider<RidesRepository>((ref) => RidesRepository());
 
+/// This driver's own profile (driverCode, currentVehicleId) - DriverProfileScreen's data
+/// source for showing which vehicle is assigned to them.
+final driverProfileProvider = FutureProvider<DriverProfile>((ref) {
+  return ref.read(driverRepositoryProvider).getMe();
+});
+
+/// The vehicle currently assigned to this driver, or null if none is assigned yet - resolved
+/// from [driverProfileProvider]'s currentVehicleId via GET /vehicles/:id.
+final assignedVehicleProvider = FutureProvider<AssignedVehicle?>((ref) async {
+  final profile = await ref.watch(driverProfileProvider.future);
+  final vehicleId = profile.currentVehicleId;
+  if (vehicleId == null) return null;
+  return ref.read(driverRepositoryProvider).getVehicle(vehicleId);
+});
+
 final driverSocketServiceProvider = Provider<DriverSocketService>((ref) {
   final service = DriverSocketService();
   ref.onDispose(service.dispose);

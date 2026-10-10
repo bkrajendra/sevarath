@@ -34,6 +34,7 @@ export class RideResponseDto {
   @ApiProperty({ nullable: true, type: String }) vehicleId!: string | null;
   @ApiProperty({ nullable: true, type: RideDriverSummaryDto }) driver!: RideDriverSummaryDto | null;
   @ApiProperty({ nullable: true, type: String }) vehicleCode!: string | null;
+  @ApiProperty({ nullable: true, type: String }) vehicleRegistrationNumber!: string | null;
 
   @ApiProperty() pickupLatitude!: number;
   @ApiProperty() pickupLongitude!: number;

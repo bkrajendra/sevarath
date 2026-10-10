@@ -27,6 +27,7 @@ import { RideResponseDto, type RideDriverSummaryDto } from './dto/ride-response.
 export type RideResponse = Ride & {
   driver: RideDriverSummaryDto | null;
   vehicleCode: string | null;
+  vehicleRegistrationNumber: string | null;
 };
 
 @ApiTags('rides')
@@ -123,7 +124,7 @@ export class RidesController {
    */
   private async enrich(ride: Ride): Promise<RideResponse> {
     if (!ride.driverId) {
-      return { ...ride, driver: null, vehicleCode: null };
+      return { ...ride, driver: null, vehicleCode: null, vehicleRegistrationNumber: null };
     }
 
     const [driver, vehicle] = await Promise.all([
@@ -138,6 +139,7 @@ export class RidesController {
         ? { id: driver.id, name: user.name, mobile: user.mobile, driverCode: driver.driverCode }
         : null,
       vehicleCode: vehicle?.vehicleCode ?? null,
+      vehicleRegistrationNumber: vehicle?.registrationNumber ?? null,
     };
   }
 }

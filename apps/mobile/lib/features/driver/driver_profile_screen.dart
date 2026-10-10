@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../auth/providers/auth_provider.dart';
+import 'providers/driver_providers.dart';
 
 /// Trimmed down from the rider ProfileScreen - no "My Rides"/"Favourite Locations" tiles,
 /// those are rider concepts with no driver-side equivalent today.
@@ -14,6 +15,8 @@ class DriverProfileScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(authControllerProvider).user;
+    final profileAsync = ref.watch(driverProfileProvider);
+    final vehicleAsync = ref.watch(assignedVehicleProvider);
     return Scaffold(
       appBar: AppBar(title: const Text('Profile')),
       body: ListView(
@@ -31,12 +34,47 @@ class DriverProfileScreen extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(user?.name ?? 'Driver', style: AppTextStyles.headline.copyWith(fontSize: 20)),
-                  Text('Driver account', style: AppTextStyles.secondary),
+                  profileAsync.when(
+                    data: (profile) => Text('Driver account · ${profile.driverCode}', style: AppTextStyles.secondary),
+                    loading: () => Text('Driver account', style: AppTextStyles.secondary),
+                    error: (error, stackTrace) => Text('Driver account', style: AppTextStyles.secondary),
+                  ),
                 ],
               ),
             ],
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceTint,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.directions_bus_filled_rounded, color: AppColors.brandGreen),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: vehicleAsync.when(
+                    data: (vehicle) => vehicle == null
+                        ? Text('No vehicle assigned yet', style: AppTextStyles.secondary)
+                        : Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(vehicle.vehicleCode, style: AppTextStyles.bodyStrong),
+                              if (vehicle.registrationNumber != null)
+                                Text(vehicle.registrationNumber!, style: AppTextStyles.secondary),
+                            ],
+                          ),
+                    loading: () => Text('Loading vehicle…', style: AppTextStyles.secondary),
+                    error: (error, stackTrace) => Text('Could not load vehicle', style: AppTextStyles.secondary),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
           const _MenuTile(icon: Icons.help_outline_rounded, label: 'Help & Support'),
           _MenuTile(
             icon: Icons.info_outline_rounded,

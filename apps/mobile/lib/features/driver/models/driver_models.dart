@@ -77,3 +77,36 @@ class PendingOffer {
 /// Matches dispatch/dispatch.constants.ts's OFFER_RESPONSE_WINDOW_MS - how long an offer stays
 /// PENDING before the backend's own timeout job expires it and re-offers the next driver.
 const offerResponseWindow = Duration(seconds: 15);
+
+/// Mirrors drivers.controller.ts's `GET /drivers/me` (DriverResponseDto) - just the fields the
+/// driver app itself needs (its own driverCode and whichever vehicle is currently assigned).
+class DriverProfile {
+  const DriverProfile({required this.driverCode, required this.currentVehicleId});
+
+  final String driverCode;
+  final String? currentVehicleId;
+
+  factory DriverProfile.fromJson(Map<String, dynamic> json) {
+    return DriverProfile(
+      driverCode: json['driverCode'] as String,
+      currentVehicleId: json['currentVehicleId'] as String?,
+    );
+  }
+}
+
+/// Mirrors vehicles.controller.ts's `GET /vehicles/:id` (VehicleResponseDto) - every
+/// authenticated role may call this (no @Roles guard on that endpoint), which is how the driver
+/// app resolves its own assigned vehicle's code/registration number.
+class AssignedVehicle {
+  const AssignedVehicle({required this.vehicleCode, required this.registrationNumber});
+
+  final String vehicleCode;
+  final String? registrationNumber;
+
+  factory AssignedVehicle.fromJson(Map<String, dynamic> json) {
+    return AssignedVehicle(
+      vehicleCode: json['vehicleCode'] as String,
+      registrationNumber: json['registrationNumber'] as String?,
+    );
+  }
+}

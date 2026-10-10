@@ -18,14 +18,25 @@ export function VehiclesPage() {
   const createVehicle = useCreateVehicle();
 
   const [vehicleCode, setVehicleCode] = useState('');
+  const [registrationNumber, setRegistrationNumber] = useState('');
   const [capacity, setCapacity] = useState('4');
 
   function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     if (!vehicleCode) return;
     createVehicle.mutate(
-      { vehicleCode, vehicleType: 'EV', capacity: Number(capacity) || 4 },
-      { onSuccess: () => setVehicleCode('') },
+      {
+        vehicleCode,
+        registrationNumber: registrationNumber || undefined,
+        vehicleType: 'EV',
+        capacity: Number(capacity) || 4,
+      },
+      {
+        onSuccess: () => {
+          setVehicleCode('');
+          setRegistrationNumber('');
+        },
+      },
     );
   }
 
@@ -40,6 +51,15 @@ export function VehiclesPage() {
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-slate-500">Vehicle code</label>
               <Input value={vehicleCode} onChange={(e) => setVehicleCode(e.target.value)} placeholder="EV-01" className="w-40" />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-slate-500">Registration number</label>
+              <Input
+                value={registrationNumber}
+                onChange={(e) => setRegistrationNumber(e.target.value)}
+                placeholder="MH-12-AB-3456"
+                className="w-40"
+              />
             </div>
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-slate-500">Capacity</label>
@@ -70,6 +90,7 @@ export function VehiclesPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Code</TableHead>
+                  <TableHead>Registration number</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Capacity</TableHead>
                   <TableHead>Status</TableHead>
@@ -79,6 +100,7 @@ export function VehiclesPage() {
                 {vehicles?.map((vehicle) => (
                   <TableRow key={vehicle.id}>
                     <TableCell className="font-medium">{vehicle.vehicleCode}</TableCell>
+                    <TableCell>{vehicle.registrationNumber ?? '-'}</TableCell>
                     <TableCell>{vehicle.vehicleType}</TableCell>
                     <TableCell>{vehicle.capacity}</TableCell>
                     <TableCell>
@@ -88,7 +110,7 @@ export function VehiclesPage() {
                 ))}
                 {vehicles?.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center text-slate-500">
+                    <TableCell colSpan={5} className="text-center text-slate-500">
                       No vehicles yet.
                     </TableCell>
                   </TableRow>

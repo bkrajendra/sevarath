@@ -97,12 +97,14 @@ class DriverEnRouteScreen extends ConsumerWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(driver?.name ?? 'Driver assigned', style: AppTextStyles.bodyStrong),
-                            if (driver != null)
+                            if (driver != null) ...[
                               Text(driver.mobile, style: AppTextStyles.secondary),
+                              Text('ID: ${driver.driverCode}', style: AppTextStyles.caption),
+                            ],
                           ],
                         ),
                       ),
-                      if (ride.vehicleCode != null)
+                      if (ride.vehicleRegistrationNumber != null || ride.vehicleCode != null)
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                           decoration: BoxDecoration(
@@ -113,7 +115,10 @@ class DriverEnRouteScreen extends ConsumerWidget {
                             children: [
                               const Icon(Icons.directions_bus_filled_rounded, size: 16, color: AppColors.brandGreen),
                               const SizedBox(width: 4),
-                              Text(ride.vehicleCode!, style: AppTextStyles.caption),
+                              Text(
+                                ride.vehicleRegistrationNumber ?? ride.vehicleCode!,
+                                style: AppTextStyles.caption,
+                              ),
                             ],
                           ),
                         ),

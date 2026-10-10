@@ -130,7 +130,7 @@ class OnTheWayScreen extends ConsumerWidget {
                           remainingKm != null ? '${remainingKm.toStringAsFixed(1)} km remaining' : 'Ride in progress',
                           style: AppTextStyles.title,
                         ),
-                        Text(ride.vehicleCode ?? '', style: AppTextStyles.caption),
+                        Text(ride.vehicleRegistrationNumber ?? ride.vehicleCode ?? '', style: AppTextStyles.caption),
                       ],
                     ),
                     const Spacer(),

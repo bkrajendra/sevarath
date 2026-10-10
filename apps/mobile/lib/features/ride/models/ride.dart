@@ -100,6 +100,7 @@ class Ride {
     required this.status,
     required this.driver,
     required this.vehicleCode,
+    required this.vehicleRegistrationNumber,
     required this.requestedAt,
     required this.acceptedAt,
     required this.driverArrivedAt,
@@ -121,6 +122,7 @@ class Ride {
   final RideStatus status;
   final RideDriverSummary? driver;
   final String? vehicleCode;
+  final String? vehicleRegistrationNumber;
   final DateTime requestedAt;
   final DateTime? acceptedAt;
   final DateTime? driverArrivedAt;
@@ -148,6 +150,7 @@ class Ride {
           ? RideDriverSummary.fromJson(json['driver'] as Map<String, dynamic>)
           : null,
       vehicleCode: json['vehicleCode'] as String?,
+      vehicleRegistrationNumber: json['vehicleRegistrationNumber'] as String?,
       requestedAt: DateTime.parse(json['requestedAt'] as String),
       acceptedAt: _parseNullable(json['acceptedAt']),
       driverArrivedAt: _parseNullable(json['driverArrivedAt']),

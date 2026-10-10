@@ -39,6 +39,27 @@ class DriverRepository {
       throw DriverException(_messageForDriverError(e));
     }
   }
+
+  /// GET /drivers/me - this driver's own profile (driverCode, currentVehicleId).
+  Future<DriverProfile> getMe() async {
+    try {
+      final response = await _apiClient.dio.get('/drivers/me');
+      return DriverProfile.fromJson(response.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      throw DriverException(_messageForDriverError(e));
+    }
+  }
+
+  /// GET /vehicles/:id - no @Roles guard on the backend (vehicles.controller.ts), so any
+  /// authenticated driver may resolve their own assigned vehicle's code/registration number.
+  Future<AssignedVehicle> getVehicle(String vehicleId) async {
+    try {
+      final response = await _apiClient.dio.get('/vehicles/$vehicleId');
+      return AssignedVehicle.fromJson(response.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      throw DriverException(_messageForDriverError(e));
+    }
+  }
 }
 
 /// apps/api/src/dispatch/dispatch.controller.ts's DispatchOffersController - the driver's
