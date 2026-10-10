@@ -19,7 +19,10 @@ setWorkerUrl('https://unpkg.com/maplibre-gl@6.13.0/dist/maplibre-gl-worker.mjs')
 // (docs/open-items.md #38/#41), but this public style already gives a real basemap
 // (roads/buildings/land use).
 export const MAP_STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty';
-export const DEFAULT_MAP_CENTER: [number, number] = [72.782, 24.4828];
+// Diamond Hall Shanti Van, Abu Road - the actual campus this app is built for
+// (apps/api/src/db/seed.ts's own named-location entry for this exact building). MapLibre wants
+// [lng, lat], the reverse of how this coordinate is recorded everywhere else in this codebase.
+export const DEFAULT_MAP_CENTER: [number, number] = [72.7947805, 24.5313075];
 export const DEFAULT_MAP_ZOOM = 15.5;
 
 /**
