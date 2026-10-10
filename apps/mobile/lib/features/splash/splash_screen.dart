@@ -1,19 +1,31 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../shared/widgets/sevarath_mark.dart';
+import '../auth/providers/auth_provider.dart';
 
-class SplashScreen extends StatefulWidget {
+class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
 
   @override
-  State<SplashScreen> createState() => _SplashScreenState();
+  ConsumerState<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
+class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
   late final Animation<double> _fade;
   late final Animation<double> _scale;
+
+  /// Was stuck looking frozen on a slow first-ever cold start (observed 2026-10-10): this
+  /// screen used to leave for /home on a bare 2s timer regardless of whether
+  /// AuthController's bootstrap (reading flutter_secure_storage, which on Android can take
+  /// well over a second on its very first-ever access while it initializes the Keystore
+  /// cipher) had actually finished. app_router.dart's redirect bounces an "isLoading" /home
+  /// navigation straight back to /splash, so a slow bootstrap made this look stuck rather
+  /// than just slow. Now this waits for both the minimum branding delay *and* a resolved
+  /// auth status before navigating, so it never races the router's own redirect logic.
+  bool _minDelayElapsed = false;
 
   @override
   void initState() {
@@ -28,8 +40,16 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     _controller.forward();
 
     Future.delayed(const Duration(milliseconds: 2000), () {
-      if (mounted) context.go('/home');
+      if (!mounted) return;
+      _minDelayElapsed = true;
+      _maybeNavigate();
     });
+  }
+
+  void _maybeNavigate() {
+    if (!_minDelayElapsed) return;
+    if (ref.read(authControllerProvider).status == AuthStatus.unknown) return;
+    context.go('/home');
   }
 
   @override
@@ -40,6 +60,10 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(authControllerProvider, (previous, next) {
+      if (next.status != AuthStatus.unknown) _maybeNavigate();
+    });
+
     return Scaffold(
       body: DecoratedBox(
         // Placeholder for a real campus hero photo (golden-hour Shantivan,
