@@ -1,9 +1,9 @@
 import 'dotenv/config';
-import { eq, inArray } from 'drizzle-orm';
+import { eq, inArray, sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import * as schema from '../db/schema';
-import { drivers, users, vehicles } from '../db/schema';
+import { campusBoundaries, drivers, users, vehicles } from '../db/schema';
 import { DriverMatcherService, LOCATION_STALENESS_WINDOW_MS } from './driver-matcher.service';
 
 describe('DriverMatcherService (integration)', () => {
@@ -128,5 +128,63 @@ describe('DriverMatcherService (integration)', () => {
 
     expect(ids).not.toContain(driverIds.near);
     expect(ids).toContain(driverIds.far);
+  });
+
+  describe('campus geofence filtering', () => {
+    let boundaryId: string;
+
+    beforeAll(async () => {
+      // A ~0.03 deg box around `pickup` covers `near` (0.01 deg offset) but not `far`
+      // (0.1 deg offset) - see the offset comments in the outer beforeAll. Built as GeoJSON
+      // via ST_GeomFromGeoJSON, matching campus-restricted-zones.service.ts's own convention.
+      const box = {
+        type: 'Polygon',
+        coordinates: [
+          [
+            [pickup.longitude - 0.03, pickup.latitude - 0.03],
+            [pickup.longitude + 0.03, pickup.latitude - 0.03],
+            [pickup.longitude + 0.03, pickup.latitude + 0.03],
+            [pickup.longitude - 0.03, pickup.latitude + 0.03],
+            [pickup.longitude - 0.03, pickup.latitude - 0.03],
+          ],
+        ],
+      };
+      const [boundary] = await db
+        .insert(campusBoundaries)
+        .values({
+          name: `Matcher Test Boundary ${Date.now()}`,
+          geom: sql`ST_GeomFromGeoJSON(${JSON.stringify(box)})`,
+        })
+        .returning();
+      boundaryId = boundary.id;
+    });
+
+    afterAll(async () => {
+      await db.delete(campusBoundaries).where(eq(campusBoundaries.id, boundaryId));
+    });
+
+    it('once a boundary is active, excludes drivers whose location falls outside every active polygon', async () => {
+      const candidates = await service.findCandidates(pickup, []);
+      const ids = candidates.map((c) => c.id);
+
+      expect(ids).toContain(driverIds.near);
+      expect(ids).not.toContain(driverIds.far);
+    });
+
+    it('an inactive boundary is ignored (same as having none)', async () => {
+      await db
+        .update(campusBoundaries)
+        .set({ isActive: false })
+        .where(eq(campusBoundaries.id, boundaryId));
+
+      const candidates = await service.findCandidates(pickup, []);
+      const ids = candidates.map((c) => c.id);
+      expect(ids).toContain(driverIds.far);
+
+      await db
+        .update(campusBoundaries)
+        .set({ isActive: true })
+        .where(eq(campusBoundaries.id, boundaryId));
+    });
   });
 });

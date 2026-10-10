@@ -1,7 +1,8 @@
 import 'dotenv/config';
+import { sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
-import { campusLocations, type NewCampusLocation } from './schema';
+import { campusBoundaries, campusLocations, type NewCampusLocation } from './schema';
 
 // Real named locations within 500m of Diamond Hall Shanti Van, Abu Road -
 // the actual campus this app is built for - sourced from Google Maps (name
@@ -91,13 +92,48 @@ async function main() {
   const existing = await db.select().from(campusLocations).limit(1);
   if (existing.length > 0) {
     console.log('campus_locations already has data - skipping seed');
-    await pool.end();
+  } else {
+    await db.insert(campusLocations).values(locations);
+    console.log(`Seeded ${locations.length} campus locations`);
+  }
+
+  await seedCampusBoundary(db);
+  await pool.end();
+}
+
+/**
+ * Seeds the dispatch geofence boundary (driver-matcher.service.ts, architecture.md §4.2 step
+ * 3) as the convex hull of every active `campus_locations` point, buffered 60m for margin at
+ * the campus edge - not a hand-guessed polygon. Wrapped in try/catch, not the hard failure the
+ * locations seed above is: a dev/CI sandbox without the PostGIS extension (docs/open-items.md
+ * #1) can't run this, but should still get a usable `campus_locations` seed for everything
+ * else that doesn't need PostGIS.
+ */
+async function seedCampusBoundary(db: ReturnType<typeof drizzle>) {
+  const existingBoundary = await db.select().from(campusBoundaries).limit(1);
+  if (existingBoundary.length > 0) {
+    console.log('campus_boundaries already has data - skipping seed');
     return;
   }
 
-  await db.insert(campusLocations).values(locations);
-  console.log(`Seeded ${locations.length} campus locations`);
-  await pool.end();
+  try {
+    await db.execute(sql`
+      INSERT INTO campus_boundaries (name, geom)
+      SELECT
+        'Diamond Hall Shanti Van Campus',
+        ST_Buffer(
+          ST_ConvexHull(ST_Collect(ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)))::geography,
+          60
+        )::geometry
+      FROM campus_locations
+      WHERE is_active = true
+    `);
+    console.log('Seeded campus boundary (convex hull of campus_locations, +60m buffer)');
+  } catch (err) {
+    console.warn(
+      `Skipped campus boundary seed - PostGIS likely unavailable in this database: ${(err as Error).message}`,
+    );
+  }
 }
 
 main().catch((err) => {

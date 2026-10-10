@@ -8,6 +8,7 @@ export * from './ride-offers';
 export * from './campus-locations';
 export * from './campus-roads';
 export * from './campus-restricted-zones';
+export * from './campus-boundaries';
 export * from './outbox-events';
 export * from './idempotency-keys';
 export * from './device-tokens';

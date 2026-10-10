@@ -1,0 +1,62 @@
+# One-off data seed (not part of normal deploy order, not meant to be
+# re-applied) - inserts one campus_boundaries polygon for dispatch's new
+# geofence filter (architecture.md §4.2 step 3, docs/open-items.md #10,
+# driver-matcher.service.ts). The boundary is computed directly from the
+# real campus_locations rows already in production (the Diamond Hall
+# Shanti Van import + whatever was added since via the admin UI), not a
+# hand-guessed polygon: convex hull of every active location's point,
+# buffered by 60m to give a margin for roads/paths at the campus edge.
+# Purely additive - inserts into campus_boundaries, does not touch
+# campus_locations. Safe to re-run only if the resulting row is deleted
+# first (it is not idempotent - re-running appends a second boundary).
+#
+# Run once:
+#   kubectl apply -f k8s/api/one-off-2026-10-10-seed-campus-boundary.yaml
+#   kubectl -n sevarath wait --for=condition=complete job/sevarath-campus-boundary-seed --timeout=60s
+#   kubectl -n sevarath logs job/sevarath-campus-boundary-seed
+#   kubectl -n sevarath delete job sevarath-campus-boundary-seed
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: sevarath-campus-boundary-seed
+  namespace: sevarath
+  labels:
+    app: sevarath-api
+    component: one-off-import
+spec:
+  backoffLimit: 1
+  template:
+    metadata:
+      labels:
+        app: sevarath-api
+        component: one-off-import
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: seed
+          image: postgis/postgis:16-3.4
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: sevarath-api-env
+                  key: DATABASE_URL
+          command: ["sh", "-c"]
+          args:
+            - |
+              psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+              BEGIN;
+              INSERT INTO campus_boundaries (name, geom)
+              SELECT
+                'Diamond Hall Shanti Van Campus',
+                ST_Buffer(
+                  ST_ConvexHull(
+                    ST_Collect(ST_SetSRID(ST_MakePoint(longitude, latitude), 4326))
+                  )::geography,
+                  60
+                )::geometry
+              FROM campus_locations
+              WHERE is_active = true;
+              COMMIT;
+              SELECT name, is_active, ST_Area(geom::geography) AS area_sqm FROM campus_boundaries;
+              SQL

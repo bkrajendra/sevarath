@@ -1,7 +1,7 @@
 import { Injectable, Logger, Inject } from '@nestjs/common';
 import { and, eq, isNotNull, notInArray, sql } from 'drizzle-orm';
 import { DRIZZLE, DrizzleDb } from '../db/drizzle.module';
-import { drivers, vehicles, type Driver } from '../db/schema';
+import { campusBoundaries, drivers, vehicles, type Driver } from '../db/schema';
 
 export interface PickupPoint {
   latitude: number;
@@ -29,20 +29,29 @@ export class DriverMatcherService {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDb) {}
 
   /**
-   * Finds AVAILABLE, ACTIVE drivers with an AVAILABLE assigned vehicle and a fresh-enough
-   * location, ordered nearest-first to `pickup` via a plain-SQL Haversine formula (no PostGIS -
-   * see architecture.md §4.2 and docs/open-items.md #2).
-   *
-   * Deliberately skips the "inside the campus geofence" filter architecture.md §4.2 also
-   * describes - there is no campus geofence data reachable without PostGIS in this environment
-   * (docs/open-items.md #1), so it's left for later PostGIS/`campus_restricted_zones`
-   * integration (see docs/open-items.md).
+   * Finds AVAILABLE, ACTIVE drivers with an AVAILABLE assigned vehicle, a fresh-enough
+   * location, and - whenever at least one `campus_boundaries` row is active - a current
+   * position inside one of those polygons (architecture.md §4.2 step 3, docs/open-items.md
+   * #10 - production's Postgres has PostGIS). The filter only engages once a boundary has
+   * actually been configured: with zero active rows it's a no-op, the same "toggle via data,
+   * not code" pattern `campus_restricted_zones` already uses for Valhalla exclusion zones -
+   * this keeps dev/CI setups that haven't imported a real boundary working unfiltered, rather
+   * than silently excluding every driver.
+   * Ordered nearest-first to `pickup` via a plain-SQL Haversine formula, not `ST_Distance`
+   * (docs/open-items.md #2 - a separate, still-open decision from the geofence filter above).
    */
   async findCandidates(
     pickup: PickupPoint,
     excludeDriverIds: string[] = [],
   ): Promise<DriverCandidate[]> {
     const staleBefore = new Date(Date.now() - LOCATION_STALENESS_WINDOW_MS);
+
+    const activeBoundaries = await this.db
+      .select({ id: campusBoundaries.id })
+      .from(campusBoundaries)
+      .where(eq(campusBoundaries.isActive, true))
+      .limit(1);
+    const hasActiveBoundary = activeBoundaries.length > 0;
 
     // 6371000 = Earth's mean radius in meters.
     const distanceMeters = sql<number>`6371000 * acos(
@@ -62,6 +71,17 @@ export class DriverMatcherService {
       sql`${drivers.locationUpdatedAt} IS NOT NULL AND ${drivers.locationUpdatedAt} >= ${staleBefore}`,
       eq(vehicles.status, 'AVAILABLE'),
     ];
+
+    if (hasActiveBoundary) {
+      conditions.push(sql`EXISTS (
+        SELECT 1 FROM ${campusBoundaries}
+        WHERE ${campusBoundaries.isActive}
+          AND ST_Contains(
+            ${campusBoundaries.geom},
+            ST_SetSRID(ST_MakePoint(${drivers.currentLongitude}, ${drivers.currentLatitude}), 4326)
+          )
+      )`);
+    }
 
     if (excludeDriverIds.length > 0) {
       conditions.push(notInArray(drivers.id, excludeDriverIds));

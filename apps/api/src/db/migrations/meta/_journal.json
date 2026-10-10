@@ -50,6 +50,13 @@
       "when": 1791447041204,
       "tag": "0006_windy_the_watchers",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791611994940,
+      "tag": "0007_complex_emma_frost",
+      "breakpoints": true
     }
   ]
 }
