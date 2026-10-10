@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Check, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -10,9 +11,28 @@ import {
   useAssignVehicle,
   useCreateDriver,
   useDrivers,
+  useProvisionDriver,
   useSuspendDriver,
 } from '@/hooks/useDrivers';
 import { useVehicles } from '@/hooks/useVehicles';
+
+function CopyButton({ value, label }: { value: string; label: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+      onClick={async () => {
+        await navigator.clipboard.writeText(value);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      }}
+    >
+      {copied ? <Check className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3" />}
+      {copied ? 'Copied' : label}
+    </button>
+  );
+}
 
 const statusVariant = {
   PENDING: 'warning',
@@ -25,6 +45,7 @@ export function DriversPage() {
   const { data: drivers, isLoading } = useDrivers();
   const { data: vehicles } = useVehicles();
   const createDriver = useCreateDriver();
+  const provisionDriver = useProvisionDriver();
   const approveDriver = useApproveDriver();
   const suspendDriver = useSuspendDriver();
   const assignVehicle = useAssignVehicle();
@@ -32,6 +53,17 @@ export function DriversPage() {
   const [userId, setUserId] = useState('');
   const [driverCode, setDriverCode] = useState('');
   const [selectedVehicle, setSelectedVehicle] = useState<Record<string, string>>({});
+
+  const [newName, setNewName] = useState('');
+  const [newMobile, setNewMobile] = useState('');
+  const [newEmail, setNewEmail] = useState('');
+  const [newDriverCode, setNewDriverCode] = useState('');
+  const [provisioned, setProvisioned] = useState<{
+    driverCode: string;
+    mobile: string;
+    temporaryPassword: string;
+    emailSent: boolean;
+  } | null>(null);
 
   const vehicleCodeById = new Map(vehicles?.map((v) => [v.id, v.vehicleCode]));
 
@@ -44,13 +76,91 @@ export function DriversPage() {
     );
   }
 
+  function handleProvision(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newName || !newMobile || !newDriverCode) return;
+    provisionDriver.mutate(
+      { name: newName, mobile: newMobile, email: newEmail || undefined, driverCode: newDriverCode },
+      {
+        onSuccess: (data) => {
+          if (!data) return;
+          setProvisioned({
+            driverCode: newDriverCode,
+            mobile: newMobile,
+            temporaryPassword: data.temporaryPassword,
+            emailSent: data.emailSent,
+          });
+          setNewName('');
+          setNewMobile('');
+          setNewEmail('');
+          setNewDriverCode('');
+        },
+      },
+    );
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <Card>
         <CardHeader>
-          <CardTitle>Provision a driver</CardTitle>
+          <CardTitle>Create a driver account</CardTitle>
           <p className="text-sm text-slate-500">
-            The user must already exist (e.g. via OTP self-registration) - paste their user id.
+            Creates the account directly - the driver doesn't need to register themselves first.
+          </p>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleProvision} className="flex flex-wrap items-end gap-3">
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-slate-500">Name</label>
+              <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Ravi Kumar" className="w-48" />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-slate-500">Mobile</label>
+              <Input value={newMobile} onChange={(e) => setNewMobile(e.target.value)} placeholder="+911234567890" className="w-44" />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-slate-500">Email (optional)</label>
+              <Input value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="ravi@example.com" className="w-56" />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-slate-500">Driver code</label>
+              <Input value={newDriverCode} onChange={(e) => setNewDriverCode(e.target.value)} placeholder="DRV-001" className="w-32" />
+            </div>
+            <Button type="submit" disabled={provisionDriver.isPending}>
+              Create account
+            </Button>
+          </form>
+          {provisionDriver.isError && (
+            <p className="mt-2 text-sm text-red-600">
+              Failed to create the account. The mobile number or email may already be in use.
+            </p>
+          )}
+          {provisioned && (
+            <div className="mt-4 flex flex-col gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+              <p className="text-sm font-medium text-emerald-900">
+                Account created for {provisioned.driverCode} ({provisioned.mobile}).
+                {provisioned.emailSent
+                  ? ' Login credentials were also emailed to them.'
+                  : ' Share these credentials with them now - they will not be shown again.'}
+              </p>
+              <div className="flex items-center gap-2 rounded-md bg-white px-3 py-2 font-mono text-sm">
+                <span className="text-slate-500">Password:</span>
+                <span>{provisioned.temporaryPassword}</span>
+                <CopyButton value={provisioned.temporaryPassword} label="Copy" />
+              </div>
+              <Button size="sm" variant="outline" className="w-fit" onClick={() => setProvisioned(null)}>
+                Dismiss
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Provision an existing user as a driver</CardTitle>
+          <p className="text-sm text-slate-500">
+            For a user who already has an account (e.g. via OTP self-registration) - paste their user id.
           </p>
         </CardHeader>
         <CardContent>

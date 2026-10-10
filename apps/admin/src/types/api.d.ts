@@ -180,6 +180,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/drivers/provision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["DriversController_provision"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/drivers/{id}": {
         parameters: {
             query?: never;
@@ -740,6 +756,30 @@ export interface components {
             /** Format: date-time */
             updatedAt: string;
         };
+        ProvisionDriverDto: {
+            /** @example Ravi Kumar */
+            name: string;
+            /**
+             * @description E.164-ish mobile number
+             * @example +911234567890
+             */
+            mobile: string;
+            /**
+             * @description If set, login credentials are emailed here (best-effort)
+             * @example ravi@example.com
+             */
+            email?: string;
+            /** @example DRV-001 */
+            driverCode: string;
+            /** @description Assign a vehicle to the driver immediately, if already known */
+            vehicleId?: string;
+        };
+        ProvisionDriverResponseDto: {
+            driver: components["schemas"]["DriverResponseDto"];
+            temporaryPassword: string;
+            /** @description Whether the credentials email was actually sent (false if no email was given, or RESEND_API_KEY is unconfigured, or the send failed) */
+            emailSent: boolean;
+        };
         AssignVehicleDto: {
             vehicleId: string;
         };
@@ -1223,6 +1263,29 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DriverResponseDto"];
+                };
+            };
+        };
+    };
+    DriversController_provision: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProvisionDriverDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProvisionDriverResponseDto"];
                 };
             };
         };

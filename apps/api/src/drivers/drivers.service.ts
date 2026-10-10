@@ -1,16 +1,74 @@
-import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import * as bcrypt from 'bcryptjs';
+import { randomBytes } from 'crypto';
 import { eq } from 'drizzle-orm';
 import { DRIZZLE, DrizzleDb } from '../db/drizzle.module';
 import { drivers, vehicles, type Driver } from '../db/schema';
+import { MailService } from '../mail/mail.service';
 import { UsersService } from '../users/users.service';
 import type { CreateDriverDto } from './dto/create-driver.dto';
+import type { ProvisionDriverDto } from './dto/provision-driver.dto';
+
+const SALT_ROUNDS = 10;
+
+/**
+ * Generates a random temporary password for an admin-provisioned driver account - meets
+ * RegisterDto's own 8-char minimum with plenty of room to spare. Not meant to be memorable
+ * (it's shown/copied once in the admin console or emailed, not typed from memory), so there's
+ * no need to avoid ambiguous characters the way a human-read-aloud code would.
+ */
+function generateTemporaryPassword(): string {
+  return randomBytes(9).toString('base64url'); // 12 chars, URL-safe alphabet
+}
 
 @Injectable()
 export class DriversService {
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDb,
     private readonly usersService: UsersService,
+    private readonly mailService: MailService,
   ) {}
+
+  /**
+   * Admin-only: creates the driver's `users` row *and* their driver profile in one step, with a
+   * generated temporary password - unlike `create()` below, which requires the user to already
+   * exist (e.g. via self-registration). This is the direct path specifically so an admin never
+   * has to ask a driver to self-register first (docs/open-items.md).
+   */
+  async provision(dto: ProvisionDriverDto): Promise<{ driver: Driver; temporaryPassword: string; emailSent: boolean }> {
+    const existing = await this.usersService.findByMobileOrEmail(dto.mobile, dto.email);
+    if (existing) {
+      throw new ConflictException('An account with this mobile number or email already exists');
+    }
+
+    const temporaryPassword = generateTemporaryPassword();
+    const passwordHash = await bcrypt.hash(temporaryPassword, SALT_ROUNDS);
+    const user = await this.usersService.create({
+      name: dto.name,
+      mobile: dto.mobile,
+      email: dto.email,
+      role: 'USER',
+      status: 'ACTIVE',
+      passwordHash,
+    });
+
+    let driver = await this.create({ userId: user.id, driverCode: dto.driverCode });
+    if (dto.vehicleId) {
+      driver = await this.assignVehicle(driver.id, dto.vehicleId);
+    }
+
+    const emailSent = dto.email
+      ? await this.mailService.sendDriverCredentials({
+          to: dto.email,
+          name: dto.name,
+          mobile: dto.mobile,
+          driverCode: dto.driverCode,
+          temporaryPassword,
+        })
+      : false;
+
+    return { driver, temporaryPassword, emailSent };
+  }
 
   /** Admin-only: provisions a driver profile for an existing user and promotes their role. */
   async create(dto: CreateDriverDto): Promise<Driver> {

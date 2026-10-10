@@ -26,6 +26,24 @@ export function useCreateDriver() {
   });
 }
 
+export function useProvisionDriver() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (body: {
+      name: string;
+      mobile: string;
+      email?: string;
+      driverCode: string;
+      vehicleId?: string;
+    }) => {
+      const { data, error } = await api.POST('/api/v1/drivers/provision', { body });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: DRIVERS_KEY }),
+  });
+}
+
 export function useApproveDriver() {
   const queryClient = useQueryClient();
   return useMutation({

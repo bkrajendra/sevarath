@@ -1,6 +1,7 @@
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { LiveDriverMap } from '@/components/live-driver-map';
 import { formatRelativeTime } from '@/lib/format';
 import { useDashboardSummary, useLiveMap } from '@/hooks/useAdminDashboard';
 
@@ -87,16 +88,15 @@ export function DashboardPage() {
       <Card>
         <CardHeader>
           <CardTitle>Live driver positions</CardTitle>
-          {/* See docs/open-items.md (map-vs-table decision) and #38 - no map library/tile
-              server exists in this app yet, so this is raw position data, not a map. */}
-          <p className="text-sm text-slate-500">
-            Map view not available yet - showing raw position data. Updates every 10s.
-          </p>
+          <p className="text-sm text-slate-500">Updates every 10s.</p>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex flex-col gap-4">
           {liveMapLoading ? (
             <p className="text-sm text-slate-500">Loading…</p>
           ) : (
+            <LiveDriverMap drivers={liveMap ?? []} />
+          )}
+          {liveMapLoading ? null : (
             <Table>
               <TableHeader>
                 <TableRow>
