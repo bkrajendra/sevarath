@@ -28,10 +28,10 @@ export function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <Card className="border-slate-900 bg-slate-900 text-white">
+      <Card className="border-foreground bg-foreground text-background">
         <CardContent className="flex items-center justify-between p-6">
           <div>
-            <p className="text-sm text-slate-300">Active rides right now</p>
+            <p className="text-sm text-background/70">Active rides right now</p>
             <p className="text-4xl font-semibold">
               {summaryLoading ? '…' : summary?.activeRidesCount ?? 0}
             </p>
@@ -46,7 +46,7 @@ export function DashboardPage() {
           </CardHeader>
           <CardContent>
             {summaryLoading ? (
-              <p className="text-sm text-slate-500">Loading…</p>
+              <p className="text-sm text-muted-foreground">Loading…</p>
             ) : (
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 {Object.entries(summary?.vehiclesByStatus ?? {}).map(([key, count]) => (
@@ -54,7 +54,7 @@ export function DashboardPage() {
                     <Badge variant={vehicleStatusVariant[key as keyof typeof vehicleStatusVariant]}>
                       {key}
                     </Badge>
-                    <span className="text-xl font-semibold text-slate-900">{count}</span>
+                    <span className="text-xl font-semibold text-foreground">{count}</span>
                   </div>
                 ))}
               </div>
@@ -68,7 +68,7 @@ export function DashboardPage() {
           </CardHeader>
           <CardContent>
             {summaryLoading ? (
-              <p className="text-sm text-slate-500">Loading…</p>
+              <p className="text-sm text-muted-foreground">Loading…</p>
             ) : (
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 {Object.entries(summary?.driversByAvailability ?? {}).map(([key, count]) => (
@@ -76,7 +76,7 @@ export function DashboardPage() {
                     <Badge variant={availabilityVariant[key as keyof typeof availabilityVariant]}>
                       {key}
                     </Badge>
-                    <span className="text-xl font-semibold text-slate-900">{count}</span>
+                    <span className="text-xl font-semibold text-foreground">{count}</span>
                   </div>
                 ))}
               </div>
@@ -88,11 +88,11 @@ export function DashboardPage() {
       <Card>
         <CardHeader>
           <CardTitle>Live driver positions</CardTitle>
-          <p className="text-sm text-slate-500">Updates every 10s.</p>
+          <p className="text-sm text-muted-foreground">Updates every 10s.</p>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           {liveMapLoading ? (
-            <p className="text-sm text-slate-500">Loading…</p>
+            <p className="text-sm text-muted-foreground">Loading…</p>
           ) : (
             <LiveDriverMap drivers={liveMap ?? []} />
           )}
@@ -127,7 +127,7 @@ export function DashboardPage() {
                 ))}
                 {liveMap?.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-slate-500">
+                    <TableCell colSpan={6} className="text-center text-muted-foreground">
                       No drivers currently reporting a position.
                     </TableCell>
                   </TableRow>

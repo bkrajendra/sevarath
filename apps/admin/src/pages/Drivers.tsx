@@ -21,7 +21,7 @@ function CopyButton({ value, label }: { value: string; label: string }) {
   return (
     <button
       type="button"
-      className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+      className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
       onClick={async () => {
         await navigator.clipboard.writeText(value);
         setCopied(true);
@@ -104,26 +104,26 @@ export function DriversPage() {
       <Card>
         <CardHeader>
           <CardTitle>Create a driver account</CardTitle>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-muted-foreground">
             Creates the account directly - the driver doesn't need to register themselves first.
           </p>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleProvision} className="flex flex-wrap items-end gap-3">
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-slate-500">Name</label>
+              <label className="text-xs font-medium text-muted-foreground">Name</label>
               <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Ravi Kumar" className="w-48" />
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-slate-500">Mobile</label>
+              <label className="text-xs font-medium text-muted-foreground">Mobile</label>
               <Input value={newMobile} onChange={(e) => setNewMobile(e.target.value)} placeholder="+911234567890" className="w-44" />
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-slate-500">Email (optional)</label>
+              <label className="text-xs font-medium text-muted-foreground">Email (optional)</label>
               <Input value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="ravi@example.com" className="w-56" />
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-slate-500">Driver code</label>
+              <label className="text-xs font-medium text-muted-foreground">Driver code</label>
               <Input value={newDriverCode} onChange={(e) => setNewDriverCode(e.target.value)} placeholder="DRV-001" className="w-32" />
             </div>
             <Button type="submit" disabled={provisionDriver.isPending}>
@@ -131,7 +131,7 @@ export function DriversPage() {
             </Button>
           </form>
           {provisionDriver.isError && (
-            <p className="mt-2 text-sm text-red-600">
+            <p className="mt-2 text-sm text-destructive">
               Failed to create the account. The mobile number or email may already be in use.
             </p>
           )}
@@ -143,8 +143,8 @@ export function DriversPage() {
                   ? ' Login credentials were also emailed to them.'
                   : ' Share these credentials with them now - they will not be shown again.'}
               </p>
-              <div className="flex items-center gap-2 rounded-md bg-white px-3 py-2 font-mono text-sm">
-                <span className="text-slate-500">Password:</span>
+              <div className="flex items-center gap-2 rounded-md bg-background px-3 py-2 font-mono text-sm">
+                <span className="text-muted-foreground">Password:</span>
                 <span>{provisioned.temporaryPassword}</span>
                 <CopyButton value={provisioned.temporaryPassword} label="Copy" />
               </div>
@@ -159,18 +159,18 @@ export function DriversPage() {
       <Card>
         <CardHeader>
           <CardTitle>Provision an existing user as a driver</CardTitle>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-muted-foreground">
             For a user who already has an account (e.g. via OTP self-registration) - paste their user id.
           </p>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleCreate} className="flex flex-wrap items-end gap-3">
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-slate-500">User ID</label>
+              <label className="text-xs font-medium text-muted-foreground">User ID</label>
               <Input value={userId} onChange={(e) => setUserId(e.target.value)} placeholder="uuid" className="w-72" />
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-slate-500">Driver code</label>
+              <label className="text-xs font-medium text-muted-foreground">Driver code</label>
               <Input value={driverCode} onChange={(e) => setDriverCode(e.target.value)} placeholder="DRV-001" className="w-40" />
             </div>
             <Button type="submit" disabled={createDriver.isPending}>
@@ -178,7 +178,7 @@ export function DriversPage() {
             </Button>
           </form>
           {createDriver.isError && (
-            <p className="mt-2 text-sm text-red-600">Failed to create driver. Check the user id.</p>
+            <p className="mt-2 text-sm text-destructive">Failed to create driver. Check the user id.</p>
           )}
         </CardContent>
       </Card>
@@ -189,7 +189,7 @@ export function DriversPage() {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <p className="text-sm text-slate-500">Loading drivers…</p>
+            <p className="text-sm text-muted-foreground">Loading drivers…</p>
           ) : (
             <Table>
               <TableHeader>
@@ -237,8 +237,8 @@ export function DriversPage() {
                         )}
                         <select
                           className={cn(
-                            'h-8 rounded-md border border-slate-300 bg-white px-2 text-xs',
-                            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400',
+                            'h-8 rounded-md border border-input bg-background px-2 text-xs',
+                            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                           )}
                           value={selectedVehicle[driver.id] ?? ''}
                           onChange={(e) =>
@@ -268,7 +268,7 @@ export function DriversPage() {
                 ))}
                 {drivers?.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center text-slate-500">
+                    <TableCell colSpan={5} className="text-center text-muted-foreground">
                       No drivers yet.
                     </TableCell>
                   </TableRow>

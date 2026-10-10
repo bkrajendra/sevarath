@@ -49,11 +49,11 @@ export function VehiclesPage() {
         <CardContent>
           <form onSubmit={handleCreate} className="flex flex-wrap items-end gap-3">
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-slate-500">Vehicle code</label>
+              <label className="text-xs font-medium text-muted-foreground">Vehicle code</label>
               <Input value={vehicleCode} onChange={(e) => setVehicleCode(e.target.value)} placeholder="EV-01" className="w-40" />
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-slate-500">Registration number</label>
+              <label className="text-xs font-medium text-muted-foreground">Registration number</label>
               <Input
                 value={registrationNumber}
                 onChange={(e) => setRegistrationNumber(e.target.value)}
@@ -62,7 +62,7 @@ export function VehiclesPage() {
               />
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-slate-500">Capacity</label>
+              <label className="text-xs font-medium text-muted-foreground">Capacity</label>
               <Input
                 type="number"
                 min={1}
@@ -84,7 +84,7 @@ export function VehiclesPage() {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <p className="text-sm text-slate-500">Loading vehicles…</p>
+            <p className="text-sm text-muted-foreground">Loading vehicles…</p>
           ) : (
             <Table>
               <TableHeader>
@@ -110,7 +110,7 @@ export function VehiclesPage() {
                 ))}
                 {vehicles?.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center text-slate-500">
+                    <TableCell colSpan={5} className="text-center text-muted-foreground">
                       No vehicles yet.
                     </TableCell>
                   </TableRow>

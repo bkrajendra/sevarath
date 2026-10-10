@@ -18,7 +18,7 @@ function CopyIdButton({ id }: { id: string }) {
     <button
       type="button"
       title={`Copy user id (${id})`}
-      className="inline-flex items-center justify-center rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+      className="inline-flex items-center justify-center rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
       onClick={async () => {
         await navigator.clipboard.writeText(id);
         setCopied(true);
@@ -76,7 +76,7 @@ export function UsersPage() {
   if (isForbidden(error)) {
     return (
       <Card>
-        <CardContent className="py-10 text-center text-sm text-slate-500">
+        <CardContent className="py-10 text-center text-sm text-muted-foreground">
           You don't have access to this page. User management is restricted to Admins.
         </CardContent>
       </Card>
@@ -98,7 +98,7 @@ export function UsersPage() {
         <CardContent className="flex flex-col gap-4">
           <div className="flex flex-wrap items-end gap-3">
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-slate-500">Search</label>
+              <label className="text-xs font-medium text-muted-foreground">Search</label>
               <Input
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
@@ -107,11 +107,11 @@ export function UsersPage() {
               />
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-slate-500">Role</label>
+              <label className="text-xs font-medium text-muted-foreground">Role</label>
               <select
                 className={cn(
-                  'h-9 rounded-md border border-slate-300 bg-white px-3 text-sm shadow-sm',
-                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400',
+                  'h-9 rounded-md border border-input bg-background px-3 text-sm shadow-sm',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                 )}
                 value={role}
                 onChange={(e) => {
@@ -129,7 +129,7 @@ export function UsersPage() {
           </div>
 
           {isLoading ? (
-            <p className="text-sm text-slate-500">Loading users…</p>
+            <p className="text-sm text-muted-foreground">Loading users…</p>
           ) : (
             <Table>
               <TableHeader>
@@ -164,7 +164,7 @@ export function UsersPage() {
                 ))}
                 {items.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-slate-500">
+                    <TableCell colSpan={6} className="text-center text-muted-foreground">
                       No users match this filter.
                     </TableCell>
                   </TableRow>
@@ -174,7 +174,7 @@ export function UsersPage() {
           )}
 
           <div className="flex items-center justify-between">
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-muted-foreground">
               {total === 0 ? 'No results' : `${rangeStart}-${rangeEnd} of ${total}`}
             </p>
             <div className="flex gap-2">

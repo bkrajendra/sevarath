@@ -75,16 +75,16 @@ export function RidesPage() {
       <Card>
         <CardHeader>
           <CardTitle>Rides</CardTitle>
-          <p className="text-sm text-slate-500">Campus-wide ride search, not limited to one user.</p>
+          <p className="text-sm text-muted-foreground">Campus-wide ride search, not limited to one user.</p>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <div className="flex flex-wrap items-end gap-3">
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-slate-500">Status</label>
+              <label className="text-xs font-medium text-muted-foreground">Status</label>
               <select
                 className={cn(
-                  'h-9 rounded-md border border-slate-300 bg-white px-3 text-sm shadow-sm',
-                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400',
+                  'h-9 rounded-md border border-input bg-background px-3 text-sm shadow-sm',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                 )}
                 value={status}
                 onChange={(e) => {
@@ -101,7 +101,7 @@ export function RidesPage() {
               </select>
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-slate-500">Requested after</label>
+              <label className="text-xs font-medium text-muted-foreground">Requested after</label>
               <Input
                 type="datetime-local"
                 value={requestedAfter}
@@ -113,7 +113,7 @@ export function RidesPage() {
               />
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-slate-500">Requested before</label>
+              <label className="text-xs font-medium text-muted-foreground">Requested before</label>
               <Input
                 type="datetime-local"
                 value={requestedBefore}
@@ -127,7 +127,7 @@ export function RidesPage() {
           </div>
 
           {isLoading ? (
-            <p className="text-sm text-slate-500">Loading rides…</p>
+            <p className="text-sm text-muted-foreground">Loading rides…</p>
           ) : (
             <Table>
               <TableHeader>
@@ -163,7 +163,7 @@ export function RidesPage() {
                 ))}
                 {items.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-slate-500">
+                    <TableCell colSpan={6} className="text-center text-muted-foreground">
                       No rides match this filter.
                     </TableCell>
                   </TableRow>
@@ -173,7 +173,7 @@ export function RidesPage() {
           )}
 
           <div className="flex items-center justify-between">
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-muted-foreground">
               {total === 0 ? 'No results' : `${rangeStart}-${rangeEnd} of ${total}`}
             </p>
             <div className="flex gap-2">

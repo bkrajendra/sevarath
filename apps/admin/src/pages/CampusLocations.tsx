@@ -58,7 +58,7 @@ export function CampusLocationsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Add a campus location</CardTitle>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-muted-foreground">
             These are the pickup/destination points the User app will offer - gates, buildings, EV
             stops, etc.
           </p>
@@ -66,15 +66,15 @@ export function CampusLocationsPage() {
         <CardContent>
           <form onSubmit={handleCreate} className="flex flex-wrap items-end gap-3">
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-slate-500">Name</label>
+              <label className="text-xs font-medium text-muted-foreground">Name</label>
               <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Main Gate" className="w-48" />
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-slate-500">Type</label>
+              <label className="text-xs font-medium text-muted-foreground">Type</label>
               <select
                 className={cn(
-                  'h-9 rounded-md border border-slate-300 bg-white px-2 text-sm',
-                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400',
+                  'h-9 rounded-md border border-input bg-background px-2 text-sm',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                 )}
                 value={type}
                 onChange={(e) => setType(e.target.value as (typeof LOCATION_TYPES)[number])}
@@ -87,7 +87,7 @@ export function CampusLocationsPage() {
               </select>
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-slate-500">Latitude</label>
+              <label className="text-xs font-medium text-muted-foreground">Latitude</label>
               <Input
                 value={latitude}
                 onChange={(e) => setLatitude(e.target.value)}
@@ -96,7 +96,7 @@ export function CampusLocationsPage() {
               />
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-slate-500">Longitude</label>
+              <label className="text-xs font-medium text-muted-foreground">Longitude</label>
               <Input
                 value={longitude}
                 onChange={(e) => setLongitude(e.target.value)}
@@ -105,7 +105,7 @@ export function CampusLocationsPage() {
               />
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-slate-500">Description</label>
+              <label className="text-xs font-medium text-muted-foreground">Description</label>
               <Input
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
@@ -118,7 +118,7 @@ export function CampusLocationsPage() {
             </Button>
           </form>
           {createLocation.isError && (
-            <p className="mt-2 text-sm text-red-600">
+            <p className="mt-2 text-sm text-destructive">
               Failed to create location. Check the latitude/longitude values.
             </p>
           )}
@@ -131,7 +131,7 @@ export function CampusLocationsPage() {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <p className="text-sm text-slate-500">Loading locations…</p>
+            <p className="text-sm text-muted-foreground">Loading locations…</p>
           ) : (
             <Table>
               <TableHeader>
@@ -148,7 +148,7 @@ export function CampusLocationsPage() {
                   <TableRow key={location.id}>
                     <TableCell className="font-medium">{location.name}</TableCell>
                     <TableCell>{location.type}</TableCell>
-                    <TableCell className="text-xs text-slate-500">
+                    <TableCell className="text-xs text-muted-foreground">
                       {location.latitude.toFixed(5)}, {location.longitude.toFixed(5)}
                     </TableCell>
                     <TableCell>
@@ -171,7 +171,7 @@ export function CampusLocationsPage() {
                 ))}
                 {locations?.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center text-slate-500">
+                    <TableCell colSpan={5} className="text-center text-muted-foreground">
                       No campus locations yet.
                     </TableCell>
                   </TableRow>
