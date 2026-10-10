@@ -9,6 +9,7 @@ import { DriversService } from './drivers.service';
 import { CreateDriverDto } from './dto/create-driver.dto';
 import { ProvisionDriverDto } from './dto/provision-driver.dto';
 import { ProvisionDriverResponseDto } from './dto/provision-driver-response.dto';
+import { UpdateDriverDto } from './dto/update-driver.dto';
 import { AssignVehicleDto } from './dto/assign-vehicle.dto';
 import { UpdateAvailabilityDto } from './dto/update-availability.dto';
 import { UpdateLocationDto } from './dto/update-location.dto';
@@ -62,6 +63,14 @@ export class DriversController {
   @ApiOkResponse({ type: DriverResponseDto })
   findOne(@Param('id', ParseUUIDPipe) id: string): Promise<Driver> {
     return this.driversService.findById(id);
+  }
+
+  /** Admin-only edit: today just `driverCode` - status/availability/vehicle stay on their own dedicated endpoints above. */
+  @Patch(':id')
+  @Roles('ADMIN')
+  @ApiOkResponse({ type: DriverResponseDto })
+  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateDriverDto): Promise<Driver> {
+    return this.driversService.update(id, dto);
   }
 
   @Patch(':id/approve')

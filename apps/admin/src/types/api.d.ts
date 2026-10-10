@@ -100,6 +100,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/users/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["UsersController_findOne"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -209,7 +225,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        patch: operations["DriversController_update"];
         trace?: never;
     };
     "/api/v1/drivers/{id}/approve": {
@@ -321,7 +337,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        patch: operations["VehiclesController_update"];
         trace?: never;
     };
     "/api/v1/vehicles/{id}/status": {
@@ -780,6 +796,10 @@ export interface components {
             /** @description Whether the credentials email was actually sent (false if no email was given, or RESEND_API_KEY is unconfigured, or the send failed) */
             emailSent: boolean;
         };
+        UpdateDriverDto: {
+            /** @example DRV-001 */
+            driverCode?: string;
+        };
         AssignVehicleDto: {
             vehicleId: string;
         };
@@ -816,6 +836,13 @@ export interface components {
         UpdateVehicleStatusDto: {
             /** @enum {string} */
             status: "AVAILABLE" | "IN_SERVICE" | "MAINTENANCE" | "INACTIVE";
+        };
+        UpdateVehicleDto: {
+            /** @example EV-01 */
+            vehicleCode?: string;
+            registrationNumber?: string;
+            vehicleType?: string;
+            capacity?: number;
         };
         CreateRideDto: {
             pickupLatitude: number;
@@ -1155,6 +1182,27 @@ export interface operations {
             };
         };
     };
+    UsersController_findOne: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserResponseDto"];
+                };
+            };
+        };
+    };
     HealthController_live: {
         parameters: {
             query?: never;
@@ -1300,6 +1348,31 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DriverResponseDto"];
+                };
+            };
+        };
+    };
+    DriversController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateDriverDto"];
+            };
+        };
         responses: {
             200: {
                 headers: {
@@ -1476,6 +1549,31 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VehicleResponseDto"];
+                };
+            };
+        };
+    };
+    VehiclesController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateVehicleDto"];
+            };
+        };
         responses: {
             200: {
                 headers: {

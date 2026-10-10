@@ -1,4 +1,4 @@
-import { Controller, Get, NotFoundException, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, NotFoundException, Param, ParseUUIDPipe, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -43,6 +43,24 @@ export class UsersController {
   ): Promise<{ items: UserResponseDto[]; total: number }> {
     const { items, total } = await this.usersService.search(query);
     return { items: items.map(toUserResponse), total };
+  }
+
+  /**
+   * ADMIN-only single-user lookup - needed so the admin console's driver-detail page can show
+   * the linked user's name/mobile/email (a `drivers` row only carries `userId`). Same
+   * ADMIN-only scope as `findAll` above, same reasoning (user account management is an admin
+   * concern) and the same `toUserResponse` mapper (never return the raw `User` row - it carries
+   * `passwordHash`).
+   */
+  @Get(':id')
+  @Roles('ADMIN')
+  @ApiOkResponse({ type: UserResponseDto })
+  async findOne(@Param('id', ParseUUIDPipe) id: string): Promise<UserResponseDto> {
+    const user = await this.usersService.findById(id);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    return toUserResponse(user);
   }
 }
 

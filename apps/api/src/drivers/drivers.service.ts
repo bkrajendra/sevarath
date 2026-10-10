@@ -8,8 +8,12 @@ import { MailService } from '../mail/mail.service';
 import { UsersService } from '../users/users.service';
 import type { CreateDriverDto } from './dto/create-driver.dto';
 import type { ProvisionDriverDto } from './dto/provision-driver.dto';
+import type { UpdateDriverDto } from './dto/update-driver.dto';
 
 const SALT_ROUNDS = 10;
+
+/** Postgres error code for a unique-constraint violation (pg driver's DatabaseError.code). */
+const UNIQUE_VIOLATION = '23505';
 
 /**
  * Generates a random temporary password for an admin-provisioned driver account - meets
@@ -84,6 +88,34 @@ export class DriversService {
 
     await this.usersService.updateRole(dto.userId, 'DRIVER');
     return driver;
+  }
+
+  /**
+   * Admin-only: edits a driver's own editable fields - today just `driverCode` (status,
+   * availability, and vehicle assignment all have their own dedicated endpoints/transition
+   * logic above and are deliberately not editable through this generic update). `driver_code`
+   * has a unique index (db/schema/drivers.ts) with no existing conflict handling anywhere in
+   * this codebase, so this is the first method that needs to catch it explicitly.
+   */
+  async update(id: string, dto: UpdateDriverDto): Promise<Driver> {
+    await this.findById(id);
+    try {
+      const [driver] = await this.db
+        .update(drivers)
+        .set({ ...dto, updatedAt: new Date() })
+        .where(eq(drivers.id, id))
+        .returning();
+      return driver;
+    } catch (error) {
+      if (this.isUniqueViolation(error)) {
+        throw new ConflictException('driverCode is already in use by another driver');
+      }
+      throw error;
+    }
+  }
+
+  private isUniqueViolation(error: unknown): boolean {
+    return typeof error === 'object' && error !== null && (error as { code?: string }).code === UNIQUE_VIOLATION;
   }
 
   async findAll(): Promise<Driver[]> {

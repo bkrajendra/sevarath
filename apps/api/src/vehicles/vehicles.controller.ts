@@ -6,6 +6,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { VehiclesService } from './vehicles.service';
 import { CreateVehicleDto } from './dto/create-vehicle.dto';
 import { UpdateVehicleStatusDto } from './dto/update-vehicle-status.dto';
+import { UpdateVehicleDto } from './dto/update-vehicle.dto';
 import { VehicleResponseDto } from './dto/vehicle-response.dto';
 import type { Vehicle } from '../db/schema';
 
@@ -33,6 +34,14 @@ export class VehiclesController {
   @ApiOkResponse({ type: VehicleResponseDto })
   findOne(@Param('id', ParseUUIDPipe) id: string): Promise<Vehicle> {
     return this.vehiclesService.findById(id);
+  }
+
+  /** Admin-only edit: vehicleCode/registrationNumber/vehicleType/capacity - status stays on its own endpoint below. */
+  @Patch(':id')
+  @Roles('ADMIN')
+  @ApiOkResponse({ type: VehicleResponseDto })
+  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateVehicleDto): Promise<Vehicle> {
+    return this.vehiclesService.update(id, dto);
   }
 
   @Patch(':id/status')
