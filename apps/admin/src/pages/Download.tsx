@@ -185,7 +185,7 @@ export function DownloadPage() {
                       className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#087a43] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#066637] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087a43] focus-visible:ring-offset-2 focus-visible:ring-offset-white"
                     >
                       <ArrowDownToLine size={18} />
-                      Download APK
+                      {asset.browser_download_url.includes("Driver") ? "SevaRath Driver": "SevaRath Riders"}
                       <span className="font-normal text-white/75">· {formatFileSize(asset.size)}</span>
                     </a>
                   ))}
@@ -258,7 +258,7 @@ export function DownloadPage() {
                       className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-[#dfe4dc] bg-white px-3.5 py-2 text-sm font-medium text-[#33483a] transition hover:border-[#087a43]/40 hover:bg-[#edf5ef] hover:text-[#075b36] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087a43]"
                     >
                       <ArrowDownToLine size={15} />
-                      {asset.name}
+                      {asset.browser_download_url.includes("Driver") ? "SevaRath Driver" : "SevaRath Riders"}
                       <span className="text-xs text-[#879189]">{formatFileSize(asset.size)}</span>
                     </a>
                   ))}
