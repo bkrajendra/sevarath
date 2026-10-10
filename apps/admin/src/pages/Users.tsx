@@ -103,7 +103,7 @@ export function UsersPage() {
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 placeholder="Name, mobile, or email"
-                className="w-64"
+                className="w-full sm:w-64"
               />
             </div>
             <div className="flex flex-col gap-1">

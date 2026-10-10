@@ -51,7 +51,7 @@ export function VehiclesPage() {
           <form onSubmit={handleCreate} className="flex flex-wrap items-end gap-3">
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-muted-foreground">Vehicle code</label>
-              <Input value={vehicleCode} onChange={(e) => setVehicleCode(e.target.value)} placeholder="EV-01" className="w-40" />
+              <Input value={vehicleCode} onChange={(e) => setVehicleCode(e.target.value)} placeholder="EV-01" className="w-full sm:w-40" />
             </div>
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-muted-foreground">Registration number</label>
@@ -59,7 +59,7 @@ export function VehiclesPage() {
                 value={registrationNumber}
                 onChange={(e) => setRegistrationNumber(e.target.value)}
                 placeholder="MH-12-AB-3456"
-                className="w-40"
+                className="w-full sm:w-40"
               />
             </div>
             <div className="flex flex-col gap-1">
@@ -69,7 +69,7 @@ export function VehiclesPage() {
                 min={1}
                 value={capacity}
                 onChange={(e) => setCapacity(e.target.value)}
-                className="w-24"
+                className="w-full sm:w-24"
               />
             </div>
             <Button type="submit" disabled={createVehicle.isPending}>

@@ -109,7 +109,7 @@ export function RidesPage() {
                   setRequestedAfter(e.target.value);
                   setOffset(0);
                 }}
-                className="w-56"
+                className="w-full sm:w-56"
               />
             </div>
             <div className="flex flex-col gap-1">
@@ -121,7 +121,7 @@ export function RidesPage() {
                   setRequestedBefore(e.target.value);
                   setOffset(0);
                 }}
-                className="w-56"
+                className="w-full sm:w-56"
               />
             </div>
           </div>
