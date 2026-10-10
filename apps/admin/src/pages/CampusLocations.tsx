@@ -68,11 +68,11 @@ export function CampusLocationsPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleCreate} className="flex flex-wrap items-end gap-3">
-            <div className="flex flex-col gap-1">
+            <div className="flex w-full flex-col gap-1 sm:w-auto">
               <label className="text-xs font-medium text-muted-foreground">Name</label>
               <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Main Gate" className="w-full sm:w-48" />
             </div>
-            <div className="flex flex-col gap-1">
+            <div className="flex w-full flex-col gap-1 sm:w-auto">
               <label className="text-xs font-medium text-muted-foreground">Type</label>
               <select
                 className={cn(
@@ -89,7 +89,7 @@ export function CampusLocationsPage() {
                 ))}
               </select>
             </div>
-            <div className="flex flex-col gap-1">
+            <div className="flex w-full flex-col gap-1 sm:w-auto">
               <label className="text-xs font-medium text-muted-foreground">Latitude</label>
               <Input
                 value={latitude}
@@ -98,7 +98,7 @@ export function CampusLocationsPage() {
                 className="w-full sm:w-32"
               />
             </div>
-            <div className="flex flex-col gap-1">
+            <div className="flex w-full flex-col gap-1 sm:w-auto">
               <label className="text-xs font-medium text-muted-foreground">Longitude</label>
               <Input
                 value={longitude}
@@ -107,7 +107,7 @@ export function CampusLocationsPage() {
                 className="w-full sm:w-32"
               />
             </div>
-            <div className="flex flex-col gap-1">
+            <div className="flex w-full flex-col gap-1 sm:w-auto">
               <label className="text-xs font-medium text-muted-foreground">Description</label>
               <Input
                 value={description}

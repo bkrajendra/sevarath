@@ -121,7 +121,7 @@ export function VehicleDetailPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSave} className="flex flex-wrap items-end gap-3">
-            <div className="flex flex-col gap-1">
+            <div className="flex w-full flex-col gap-1 sm:w-auto">
               <Label htmlFor="vehicleCode" className="text-xs font-medium text-muted-foreground">
                 Vehicle code
               </Label>
@@ -132,7 +132,7 @@ export function VehicleDetailPage() {
                 className="w-full sm:w-40"
               />
             </div>
-            <div className="flex flex-col gap-1">
+            <div className="flex w-full flex-col gap-1 sm:w-auto">
               <Label htmlFor="registrationNumber" className="text-xs font-medium text-muted-foreground">
                 Registration number
               </Label>
@@ -143,7 +143,7 @@ export function VehicleDetailPage() {
                 className="w-full sm:w-40"
               />
             </div>
-            <div className="flex flex-col gap-1">
+            <div className="flex w-full flex-col gap-1 sm:w-auto">
               <Label htmlFor="vehicleType" className="text-xs font-medium text-muted-foreground">
                 Type
               </Label>
@@ -154,7 +154,7 @@ export function VehicleDetailPage() {
                 className="w-full sm:w-28"
               />
             </div>
-            <div className="flex flex-col gap-1">
+            <div className="flex w-full flex-col gap-1 sm:w-auto">
               <Label htmlFor="capacity" className="text-xs font-medium text-muted-foreground">
                 Capacity
               </Label>

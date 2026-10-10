@@ -80,7 +80,7 @@ export function RidesPage() {
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <div className="flex flex-wrap items-end gap-3">
-            <div className="flex flex-col gap-1">
+            <div className="flex w-full flex-col gap-1 sm:w-auto">
               <label className="text-xs font-medium text-muted-foreground">Status</label>
               <select
                 className={cn(
@@ -101,7 +101,7 @@ export function RidesPage() {
                 ))}
               </select>
             </div>
-            <div className="flex flex-col gap-1">
+            <div className="flex w-full flex-col gap-1 sm:w-auto">
               <label className="text-xs font-medium text-muted-foreground">Requested after</label>
               <Input
                 type="datetime-local"
@@ -113,7 +113,7 @@ export function RidesPage() {
                 className="w-full sm:w-56"
               />
             </div>
-            <div className="flex flex-col gap-1">
+            <div className="flex w-full flex-col gap-1 sm:w-auto">
               <label className="text-xs font-medium text-muted-foreground">Requested before</label>
               <Input
                 type="datetime-local"

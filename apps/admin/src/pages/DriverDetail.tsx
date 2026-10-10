@@ -183,7 +183,7 @@ export function DriverDetailPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSaveDriverCode} className="flex flex-wrap items-end gap-3">
-            <div className="flex flex-col gap-1">
+            <div className="flex w-full flex-col gap-1 sm:w-auto">
               <Label htmlFor="driverCode" className="text-xs font-medium text-muted-foreground">
                 Driver code
               </Label>

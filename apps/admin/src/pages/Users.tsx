@@ -111,7 +111,7 @@ export function UsersPage() {
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <div className="flex flex-wrap items-end gap-3">
-            <div className="flex flex-col gap-1">
+            <div className="flex w-full flex-col gap-1 sm:w-auto">
               <label className="text-xs font-medium text-muted-foreground">Search</label>
               <Input
                 value={searchInput}
@@ -120,7 +120,7 @@ export function UsersPage() {
                 className="w-full sm:w-64"
               />
             </div>
-            <div className="flex flex-col gap-1">
+            <div className="flex w-full flex-col gap-1 sm:w-auto">
               <label className="text-xs font-medium text-muted-foreground">Role</label>
               <select
                 className={cn(

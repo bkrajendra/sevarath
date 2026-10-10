@@ -125,19 +125,19 @@ export function DriversPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleProvision} className="flex flex-wrap items-end gap-3">
-            <div className="flex flex-col gap-1">
+            <div className="flex w-full flex-col gap-1 sm:w-auto">
               <label className="text-xs font-medium text-muted-foreground">Name</label>
               <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Ravi Kumar" className="w-full sm:w-48" />
             </div>
-            <div className="flex flex-col gap-1">
+            <div className="flex w-full flex-col gap-1 sm:w-auto">
               <label className="text-xs font-medium text-muted-foreground">Mobile</label>
               <Input value={newMobile} onChange={(e) => setNewMobile(e.target.value)} placeholder="+911234567890" className="w-full sm:w-44" />
             </div>
-            <div className="flex flex-col gap-1">
+            <div className="flex w-full flex-col gap-1 sm:w-auto">
               <label className="text-xs font-medium text-muted-foreground">Email (optional)</label>
               <Input value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="ravi@example.com" className="w-full sm:w-56" />
             </div>
-            <div className="flex flex-col gap-1">
+            <div className="flex w-full flex-col gap-1 sm:w-auto">
               <label className="text-xs font-medium text-muted-foreground">Driver code</label>
               <Input value={newDriverCode} onChange={(e) => setNewDriverCode(e.target.value)} placeholder="DRV-001" className="w-full sm:w-32" />
             </div>
@@ -180,11 +180,11 @@ export function DriversPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleCreate} className="flex flex-wrap items-end gap-3">
-            <div className="flex flex-col gap-1">
+            <div className="flex w-full flex-col gap-1 sm:w-auto">
               <label className="text-xs font-medium text-muted-foreground">User ID</label>
               <Input value={userId} onChange={(e) => setUserId(e.target.value)} placeholder="uuid" className="w-full sm:w-72" />
             </div>
-            <div className="flex flex-col gap-1">
+            <div className="flex w-full flex-col gap-1 sm:w-auto">
               <label className="text-xs font-medium text-muted-foreground">Driver code</label>
               <Input value={driverCode} onChange={(e) => setDriverCode(e.target.value)} placeholder="DRV-001" className="w-full sm:w-40" />
             </div>
