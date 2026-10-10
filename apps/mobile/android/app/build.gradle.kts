@@ -27,6 +27,11 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    // AGP 8 disables resValue() by default - needed below for each flavor's app_name.
+    buildFeatures {
+        resValues = true
+    }
+
     defaultConfig {
         applicationId = "com.rajendrakhope.sevarath"
         // You can update the following values to match your application needs.
