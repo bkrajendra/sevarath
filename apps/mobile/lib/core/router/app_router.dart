@@ -110,6 +110,11 @@ final GoRouter appRouter = GoRouter(
       builder: (context, state) => const SelectDestinationScreen(),
     ),
     GoRoute(
+      path: '/select-pickup',
+      parentNavigatorKey: rootNavigatorKey,
+      builder: (context, state) => const SelectDestinationScreen(isPickupMode: true),
+    ),
+    GoRoute(
       path: '/confirm-ride',
       parentNavigatorKey: rootNavigatorKey,
       builder: (context, state) =>

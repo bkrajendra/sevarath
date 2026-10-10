@@ -35,6 +35,11 @@ class _ConfirmRideScreenState extends ConsumerState<ConfirmRideScreen> {
   String? _locationError;
   bool _resolvingLocation = true;
 
+  /// A rider-chosen pickup point (via the pickup row's "Select Pickup Location" picker),
+  /// overriding the GPS-derived [_position] below. Null means "use my current location",
+  /// the only option before this feature existed.
+  CampusLocationUi? _pickupOverride;
+
   @override
   void initState() {
     super.initState();
@@ -100,13 +105,16 @@ class _ConfirmRideScreenState extends ConsumerState<ConfirmRideScreen> {
     return nearest;
   }
 
-  Future<void> _confirm(CampusLocationUi destination, String? pickupLocationName) async {
-    final position = _position;
-    if (position == null) return;
+  Future<void> _confirm(
+    CampusLocationUi destination,
+    double pickupLatitude,
+    double pickupLongitude,
+    String? pickupLocationName,
+  ) async {
     final controller = ref.read(rideControllerProvider.notifier);
     final ok = await controller.requestRide(
-      pickupLatitude: position.latitude,
-      pickupLongitude: position.longitude,
+      pickupLatitude: pickupLatitude,
+      pickupLongitude: pickupLongitude,
       pickupLocationName: pickupLocationName,
       destinationLatitude: destination.latitude,
       destinationLongitude: destination.longitude,
@@ -114,6 +122,13 @@ class _ConfirmRideScreenState extends ConsumerState<ConfirmRideScreen> {
     );
     if (ok && mounted) {
       context.pushReplacement('/finding-vehicle');
+    }
+  }
+
+  Future<void> _choosePickupLocation() async {
+    final selected = await context.push<CampusLocationUi>('/select-pickup');
+    if (selected != null) {
+      setState(() => _pickupOverride = selected);
     }
   }
 
@@ -160,16 +175,23 @@ class _ConfirmRideScreenState extends ConsumerState<ConfirmRideScreen> {
     }
 
     final position = _position!;
+    final pickupOverride = _pickupOverride;
     final locationsAsync = ref.watch(campusLocationsProvider);
-    final nearestStop = locationsAsync.maybeWhen(
-      data: (locations) => _nearestStop(locations, position),
-      orElse: () => null,
-    );
-    final pickupLabel = nearestStop != null ? 'Near ${nearestStop.name}' : 'Current Location';
+    final nearestStop = pickupOverride == null
+        ? locationsAsync.maybeWhen(
+            data: (locations) => _nearestStop(locations, position),
+            orElse: () => null,
+          )
+        : null;
+
+    final pickupLatitude = pickupOverride?.latitude ?? position.latitude;
+    final pickupLongitude = pickupOverride?.longitude ?? position.longitude;
+    final pickupLocationName = pickupOverride?.name ?? nearestStop?.name;
+    final pickupLabel = pickupOverride?.name ?? (nearestStop != null ? 'Near ${nearestStop.name}' : 'Current Location');
+    final pickupSubtitle = pickupOverride != null ? pickupOverride.category : 'Your location · tap to change';
 
     final distanceKm =
-        Geolocator.distanceBetween(position.latitude, position.longitude, destination.latitude, destination.longitude) /
-        1000;
+        Geolocator.distanceBetween(pickupLatitude, pickupLongitude, destination.latitude, destination.longitude) / 1000;
     final etaMinutes = (distanceKm / _assumedAverageSpeedKmh * 60).ceil().clamp(1, 999);
 
     final rideState = ref.watch(rideControllerProvider);
@@ -183,9 +205,9 @@ class _ConfirmRideScreenState extends ConsumerState<ConfirmRideScreen> {
               children: [
                 Positioned.fill(
                   child: CampusMapPreview(
-                    pickup: LatLng(position.latitude, position.longitude),
+                    pickup: LatLng(pickupLatitude, pickupLongitude),
                     destination: LatLng(destination.latitude, destination.longitude),
-                    center: LatLng(position.latitude, position.longitude),
+                    center: LatLng(pickupLatitude, pickupLongitude),
                   ),
                 ),
                 Positioned(
@@ -225,10 +247,20 @@ class _ConfirmRideScreenState extends ConsumerState<ConfirmRideScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _RouteRow(
-                    dotColor: AppColors.pickupGreen,
-                    title: pickupLabel,
-                    subtitle: 'Your location',
+                  InkWell(
+                    onTap: _choosePickupLocation,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: _RouteRow(
+                            dotColor: AppColors.pickupGreen,
+                            title: pickupLabel,
+                            subtitle: pickupSubtitle,
+                          ),
+                        ),
+                        const Icon(Icons.edit_location_alt_outlined, size: 18, color: AppColors.textSecondary),
+                      ],
+                    ),
                   ),
                   const Padding(
                     padding: EdgeInsets.only(left: 5),
@@ -275,7 +307,7 @@ class _ConfirmRideScreenState extends ConsumerState<ConfirmRideScreen> {
                     child: ElevatedButton(
                       onPressed: rideState.isRequesting
                           ? null
-                          : () => _confirm(destination, nearestStop?.name),
+                          : () => _confirm(destination, pickupLatitude, pickupLongitude, pickupLocationName),
                       child: rideState.isRequesting
                           ? const SizedBox(
                               width: 20,

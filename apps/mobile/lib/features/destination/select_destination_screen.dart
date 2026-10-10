@@ -7,8 +7,14 @@ import '../../core/theme/app_text_styles.dart';
 import '../ride/models/ride_models.dart';
 import 'data/campus_locations_repository.dart';
 
+/// Also doubles as the pickup-location picker (ConfirmRideScreen's "Current Location" row is
+/// tappable) - [isPickupMode] swaps the title/behavior: instead of pushing straight to
+/// /confirm-ride, it pops the chosen [CampusLocationUi] back to the caller (or null for "keep
+/// using my current GPS location", same as just pressing back).
 class SelectDestinationScreen extends ConsumerStatefulWidget {
-  const SelectDestinationScreen({super.key});
+  const SelectDestinationScreen({super.key, this.isPickupMode = false});
+
+  final bool isPickupMode;
 
   @override
   ConsumerState<SelectDestinationScreen> createState() =>
@@ -51,9 +57,15 @@ class _SelectDestinationScreenState
     final locationsAsync = ref.watch(campusLocationsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Select Destination')),
+      appBar: AppBar(title: Text(widget.isPickupMode ? 'Select Pickup Location' : 'Select Destination')),
       body: Column(
         children: [
+          if (widget.isPickupMode)
+            ListTile(
+              leading: const Icon(Icons.my_location_rounded, color: AppColors.brandGreen),
+              title: const Text('Use my current location'),
+              onTap: () => context.pop(),
+            ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
             child: TextField(
@@ -176,7 +188,9 @@ class _SelectDestinationScreenState
                               : _favorites.add(loc.id);
                         }),
                       ),
-                      onTap: () => context.push('/confirm-ride', extra: loc),
+                      onTap: () => widget.isPickupMode
+                          ? context.pop(loc)
+                          : context.push('/confirm-ride', extra: loc),
                     );
                   },
                 );
