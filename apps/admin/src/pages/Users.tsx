@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Check, Copy } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,6 +8,27 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { cn } from '@/lib/cn';
 import { formatDateTime } from '@/lib/format';
 import { isForbidden, useUsers, type UserRole } from '@/hooks/useUsers';
+
+/** Copies a user's id (needed to paste into the Drivers page's "Provision a driver" form -
+ * that's the only place this id is used anywhere, and the Users table never showed it at all
+ * until now). */
+function CopyIdButton({ id }: { id: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      title={`Copy user id (${id})`}
+      className="inline-flex items-center justify-center rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+      onClick={async () => {
+        await navigator.clipboard.writeText(id);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      }}
+    >
+      {copied ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+    </button>
+  );
+}
 
 const PAGE_SIZE = 20;
 const SEARCH_DEBOUNCE_MS = 300;
@@ -123,7 +145,12 @@ export function UsersPage() {
               <TableBody>
                 {items.map((user) => (
                   <TableRow key={user.id}>
-                    <TableCell className="font-medium">{user.name}</TableCell>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-1.5">
+                        {user.name}
+                        <CopyIdButton id={user.id} />
+                      </div>
+                    </TableCell>
                     <TableCell>{user.mobile}</TableCell>
                     <TableCell>{user.email ?? '-'}</TableCell>
                     <TableCell>
