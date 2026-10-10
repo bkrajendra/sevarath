@@ -44,10 +44,10 @@ class RidesRepository {
         data: {
           'pickupLatitude': pickupLatitude,
           'pickupLongitude': pickupLongitude,
-          if (pickupLocationName != null) 'pickupLocationName': pickupLocationName,
+          'pickupLocationName': ?pickupLocationName,
           'destinationLatitude': destinationLatitude,
           'destinationLongitude': destinationLongitude,
-          if (destinationLocationName != null) 'destinationLocationName': destinationLocationName,
+          'destinationLocationName': ?destinationLocationName,
         },
       );
       return Ride.fromJson(response.data as Map<String, dynamic>);
@@ -83,7 +83,7 @@ class RidesRepository {
     try {
       final response = await _apiClient.dio.post(
         '/rides/$id/cancel',
-        data: {if (reason != null) 'reason': reason},
+        data: {'reason': ?reason},
       );
       return Ride.fromJson(response.data as Map<String, dynamic>);
     } on DioException catch (e) {
