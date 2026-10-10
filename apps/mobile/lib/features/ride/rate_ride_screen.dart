@@ -1,20 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
-import 'models/mock_campus_data.dart';
+import 'providers/ride_provider.dart';
 
-class RateRideScreen extends StatefulWidget {
+/// No backend rating endpoint exists yet (apps/api has no ride-rating table/route at all -
+/// see docs/open-items.md). This screen still collects a real rating/comment locally (useful
+/// UI to have ready), but Submit is honest about not persisting anywhere yet rather than
+/// faking a successful save.
+class RateRideScreen extends ConsumerStatefulWidget {
   const RateRideScreen({super.key});
 
   @override
-  State<RateRideScreen> createState() => _RateRideScreenState();
+  ConsumerState<RateRideScreen> createState() => _RateRideScreenState();
 }
 
-class _RateRideScreenState extends State<RateRideScreen> {
-  int _rating = 4;
-  final _tags = <String>{'Courteous'};
-  final _commentController = TextEditingController(text: 'Smooth and pleasant ride.');
+class _RateRideScreenState extends ConsumerState<RateRideScreen> {
+  int _rating = 5;
+  final _tags = <String>{};
+  final _commentController = TextEditingController();
 
   static const _allTags = ['Punctual', 'Safe', 'Courteous', 'Clean', 'Comfortable'];
   static const _ratingLabels = {1: 'Poor', 2: 'Fair', 3: 'Good', 4: 'Very Good', 5: 'Excellent'};
@@ -27,6 +32,9 @@ class _RateRideScreenState extends State<RateRideScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final driver = ref.read(rideControllerProvider).ride?.driver;
+    final vehicleCode = ref.read(rideControllerProvider).ride?.vehicleCode;
+
     return Scaffold(
       appBar: AppBar(title: const Text('Rate Your Ride')),
       body: ListView(
@@ -43,8 +51,8 @@ class _RateRideScreenState extends State<RateRideScreen> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(mockDriver.name, style: AppTextStyles.bodyStrong.copyWith(fontSize: 17)),
-                  Text('${mockDriver.vehicleCode} · 9 min · 1.2 km', style: AppTextStyles.secondary),
+                  Text(driver?.name ?? 'Your driver', style: AppTextStyles.bodyStrong.copyWith(fontSize: 17)),
+                  if (vehicleCode != null) Text(vehicleCode, style: AppTextStyles.secondary),
                 ],
               ),
             ],
@@ -106,7 +114,13 @@ class _RateRideScreenState extends State<RateRideScreen> {
           ),
           const SizedBox(height: 28),
           ElevatedButton(
-            onPressed: () => context.go('/home'),
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Thanks! Ride ratings are not saved yet - coming soon.')),
+              );
+              ref.read(rideControllerProvider.notifier).clear();
+              context.go('/home');
+            },
             child: const Text('Submit'),
           ),
         ],

@@ -1,16 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
+import 'models/ride.dart';
+import 'providers/ride_provider.dart';
 
-class FindingVehicleScreen extends StatefulWidget {
+/// Watches the real ride (created by ConfirmRideScreen, kept in sync over the /ws gateway +
+/// REST fallback by RideController) and reacts to its actual status - no timer, no auto-advance.
+class FindingVehicleScreen extends ConsumerStatefulWidget {
   const FindingVehicleScreen({super.key});
 
   @override
-  State<FindingVehicleScreen> createState() => _FindingVehicleScreenState();
+  ConsumerState<FindingVehicleScreen> createState() => _FindingVehicleScreenState();
 }
 
-class _FindingVehicleScreenState extends State<FindingVehicleScreen>
+class _FindingVehicleScreenState extends ConsumerState<FindingVehicleScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _pulseController;
 
@@ -21,11 +26,6 @@ class _FindingVehicleScreenState extends State<FindingVehicleScreen>
       vsync: this,
       duration: const Duration(milliseconds: 1600),
     )..repeat();
-
-    // Mock flow: auto-advance to the driver screen after "finding" a vehicle.
-    Future.delayed(const Duration(milliseconds: 2600), () {
-      if (mounted) context.pushReplacement('/driver-en-route');
-    });
   }
 
   @override
@@ -36,6 +36,39 @@ class _FindingVehicleScreenState extends State<FindingVehicleScreen>
 
   @override
   Widget build(BuildContext context) {
+    final ride = ref.watch(rideControllerProvider).ride;
+
+    ref.listen(rideControllerProvider, (previous, next) {
+      final status = next.ride?.status;
+      if (status == RideStatus.driverAssigned || status == RideStatus.driverEnRouteToPickup) {
+        context.pushReplacement('/driver-en-route');
+      }
+    });
+
+    if (ride == null) {
+      // Shouldn't normally happen (this screen is only reached after a successful
+      // requestRide()), but handle it rather than crash on a null ride.
+      return Scaffold(
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('No active ride', style: AppTextStyles.bodyStrong),
+                const SizedBox(height: 12),
+                ElevatedButton(onPressed: () => context.go('/home'), child: const Text('Back to Home')),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (ride.status == RideStatus.noDriverAvailable) {
+      return _NoDriverAvailable(onRetry: () => context.pop());
+    }
+
     return Scaffold(
       body: SafeArea(
         child: Padding(
@@ -83,34 +116,14 @@ class _FindingVehicleScreenState extends State<FindingVehicleScreen>
                 ),
               ),
               const Spacer(),
-              const _StageStepper(),
               const SizedBox(height: 24),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceTint,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.schedule_rounded, color: AppColors.brandGreen),
-                    const SizedBox(width: 10),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Estimated arrival', style: AppTextStyles.caption),
-                        Text('2 - 4 min', style: AppTextStyles.title),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton(
-                  onPressed: () => context.pop(),
+                  onPressed: () async {
+                    final cancelled = await ref.read(rideControllerProvider.notifier).cancelRide();
+                    if (cancelled && context.mounted) context.pop();
+                  },
                   style: OutlinedButton.styleFrom(foregroundColor: AppColors.error),
                   child: const Text('Cancel Request'),
                 ),
@@ -142,37 +155,41 @@ class _FindingVehicleScreenState extends State<FindingVehicleScreen>
   }
 }
 
-class _StageStepper extends StatelessWidget {
-  const _StageStepper();
+class _NoDriverAvailable extends ConsumerWidget {
+  const _NoDriverAvailable({required this.onRetry});
+
+  final VoidCallback onRetry;
 
   @override
-  Widget build(BuildContext context) {
-    const stages = ['Searching', 'Assigning', 'Confirming'];
-    return Row(
-      children: List.generate(stages.length * 2 - 1, (i) {
-        if (i.isOdd) {
-          return Expanded(
-            child: Container(height: 2, color: i < 1 ? AppColors.ctaGreen : AppColors.divider),
-          );
-        }
-        final index = i ~/ 2;
-        final active = index == 0;
-        return Column(
-          children: [
-            Container(
-              width: 12,
-              height: 12,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: active ? AppColors.ctaGreen : AppColors.surface,
-                border: Border.all(color: active ? AppColors.ctaGreen : AppColors.divider, width: 2),
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Scaffold(
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.directions_car_outlined, size: 48, color: AppColors.textSecondary),
+              const SizedBox(height: 16),
+              Text('No vehicle available right now', style: AppTextStyles.bodyStrong, textAlign: TextAlign.center),
+              const SizedBox(height: 8),
+              Text(
+                'Every nearby EV is busy or out of range. Please try again shortly.',
+                style: AppTextStyles.secondary,
+                textAlign: TextAlign.center,
               ),
-            ),
-            const SizedBox(height: 6),
-            Text(stages[index], style: AppTextStyles.caption),
-          ],
-        );
-      }),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: () {
+                  ref.read(rideControllerProvider.notifier).clear();
+                  onRetry();
+                },
+                child: const Text('Go Back'),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

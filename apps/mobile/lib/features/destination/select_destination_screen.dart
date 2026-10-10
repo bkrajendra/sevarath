@@ -139,9 +139,9 @@ class _SelectDestinationScreenState
                           color: AppColors.brandGreen,
                         ),
                         title: const Text('Additional Location'),
-                        subtitle: const Text('Enter custom location'),
+                        subtitle: const Text('Not available yet - pick a listed location'),
+                        enabled: false,
                         trailing: const Icon(Icons.chevron_right_rounded),
-                        onTap: () => context.push('/confirm-ride'),
                       );
                     }
                     final loc = filtered[index];
@@ -176,7 +176,7 @@ class _SelectDestinationScreenState
                               : _favorites.add(loc.id);
                         }),
                       ),
-                      onTap: () => context.push('/confirm-ride'),
+                      onTap: () => context.push('/confirm-ride', extra: loc),
                     );
                   },
                 );

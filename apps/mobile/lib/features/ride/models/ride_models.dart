@@ -10,6 +10,8 @@ class CampusLocationUi {
     required this.category,
     required this.icon,
     required this.badgeColor,
+    required this.latitude,
+    required this.longitude,
     this.subtitle,
     this.type,
   });
@@ -19,22 +21,8 @@ class CampusLocationUi {
   final String category;
   final IconData icon;
   final Color badgeColor;
+  final double latitude;
+  final double longitude;
   final String? subtitle;
   final String? type;
 }
-
-class RideDriverUi {
-  const RideDriverUi({
-    required this.name,
-    required this.rating,
-    required this.ridesCount,
-    required this.vehicleCode,
-  });
-
-  final String name;
-  final double rating;
-  final int ridesCount;
-  final String vehicleCode;
-}
-
-enum RideSearchStage { searching, assigning, confirming }

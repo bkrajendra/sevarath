@@ -6,6 +6,8 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../auth/providers/auth_provider.dart';
 import '../destination/data/campus_locations_repository.dart';
+import '../ride/models/ride.dart';
+import '../ride/providers/ride_provider.dart';
 import 'widgets/quick_location_chip.dart';
 import 'widgets/where_to_card.dart';
 
@@ -16,6 +18,11 @@ class HomeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(authControllerProvider).user;
     final locationsAsync = ref.watch(campusLocationsProvider);
+    // Watching here (rather than only inside the ride-flow screens) connects the /ws socket as
+    // soon as the user reaches Home, so a ride resumed via RideSync (app restarted mid-ride) is
+    // known about before the user ever has to re-request one.
+    final activeRide = ref.watch(rideControllerProvider).ride;
+    final resumeRoute = activeRide != null ? routeForRideStatus(activeRide.status) : null;
 
     return Scaffold(
       body: SafeArea(
@@ -53,6 +60,19 @@ class HomeScreen extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 20),
+            if (resumeRoute != null) ...[
+              Card(
+                color: AppColors.surfaceTint,
+                child: ListTile(
+                  leading: const Icon(Icons.directions_car_filled_rounded, color: AppColors.brandGreen),
+                  title: const Text('You have a ride in progress'),
+                  subtitle: Text(activeRide!.destinationLocationName ?? 'Tap to resume'),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () => context.push(resumeRoute),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
             WhereToCard(onTap: () => context.push('/select-destination')),
             const SizedBox(height: 24),
             Text('Quick Locations', style: AppTextStyles.title),
@@ -96,7 +116,7 @@ class HomeScreen extends ConsumerWidget {
                         final loc = quickLocations[index];
                         return QuickLocationChip(
                           location: loc,
-                          onTap: () => context.push('/select-destination'),
+                          onTap: () => context.push('/confirm-ride', extra: loc),
                         );
                       },
                     ),
@@ -136,7 +156,7 @@ class HomeScreen extends ConsumerWidget {
                             loc.category,
                             style: AppTextStyles.secondary,
                           ),
-                          onTap: () => context.push('/select-destination'),
+                          onTap: () => context.push('/confirm-ride', extra: loc),
                         ),
                       ),
                     ),

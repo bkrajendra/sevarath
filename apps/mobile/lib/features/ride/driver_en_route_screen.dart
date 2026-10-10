@@ -1,16 +1,41 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../shared/widgets/campus_map_preview.dart';
-import 'models/mock_campus_data.dart';
+import 'models/ride.dart';
+import 'providers/ride_provider.dart';
 
-class DriverEnRouteScreen extends StatelessWidget {
+class DriverEnRouteScreen extends ConsumerWidget {
   const DriverEnRouteScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final rideState = ref.watch(rideControllerProvider);
+    final ride = rideState.ride;
+
+    ref.listen(rideControllerProvider, (previous, next) {
+      if (next.ride?.status == RideStatus.rideStarted) {
+        context.pushReplacement('/on-the-way');
+      }
+    });
+
+    if (ride == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Driver En Route')),
+        body: Center(child: ElevatedButton(onPressed: () => context.go('/home'), child: const Text('Back to Home'))),
+      );
+    }
+
+    final driver = ride.driver;
+    final liveLocation = rideState.driverLocation?.rideId == ride.id ? rideState.driverLocation : null;
+    final vehiclePosition = liveLocation != null
+        ? LatLng(liveLocation.latitude, liveLocation.longitude)
+        : null;
+    final arrived = ride.status == RideStatus.driverArrived;
+
     return Scaffold(
       appBar: AppBar(title: const Text('Driver En Route')),
       body: Column(
@@ -19,28 +44,30 @@ class DriverEnRouteScreen extends StatelessWidget {
             flex: 3,
             child: Stack(
               children: [
-                const Positioned.fill(
+                Positioned.fill(
                   child: CampusMapPreview(
-                    pickup: LatLng(24.4828, 72.7820),
-                    vehiclePosition: LatLng(24.4836, 72.7832),
+                    pickup: LatLng(ride.pickupLatitude, ride.pickupLongitude),
+                    vehiclePosition: vehiclePosition,
+                    center: LatLng(ride.pickupLatitude, ride.pickupLongitude),
                   ),
                 ),
-                Positioned(
-                  top: 16,
-                  right: 16,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: AppColors.ctaGreen,
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 6)],
-                    ),
-                    child: const Text(
-                      '3 min',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+                if (arrived)
+                  Positioned(
+                    top: 16,
+                    right: 16,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: AppColors.ctaGreen,
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 6)],
+                      ),
+                      child: const Text(
+                        'Arrived',
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+                      ),
                     ),
                   ),
-                ),
               ],
             ),
           ),
@@ -69,31 +96,27 @@ class DriverEnRouteScreen extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(mockDriver.name, style: AppTextStyles.bodyStrong),
-                            Row(
-                              children: [
-                                const Icon(Icons.star_rounded, size: 16, color: AppColors.ratingGold),
-                                Text(' ${mockDriver.rating} (${mockDriver.ridesCount} rides)',
-                                    style: AppTextStyles.secondary),
-                              ],
-                            ),
+                            Text(driver?.name ?? 'Driver assigned', style: AppTextStyles.bodyStrong),
+                            if (driver != null)
+                              Text(driver.mobile, style: AppTextStyles.secondary),
                           ],
                         ),
                       ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: AppColors.surfaceTint,
-                          borderRadius: BorderRadius.circular(8),
+                      if (ride.vehicleCode != null)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceTint,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.directions_bus_filled_rounded, size: 16, color: AppColors.brandGreen),
+                              const SizedBox(width: 4),
+                              Text(ride.vehicleCode!, style: AppTextStyles.caption),
+                            ],
+                          ),
                         ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.directions_bus_filled_rounded, size: 16, color: AppColors.brandGreen),
-                            const SizedBox(width: 4),
-                            Text(mockDriver.vehicleCode, style: AppTextStyles.caption),
-                          ],
-                        ),
-                      ),
                     ],
                   ),
                   const SizedBox(height: 12),
@@ -107,36 +130,28 @@ class DriverEnRouteScreen extends StatelessWidget {
                       children: [
                         const Icon(Icons.timelapse_rounded, size: 18, color: AppColors.brandGreen),
                         const SizedBox(width: 8),
-                        Text('Arriving in 3 min · Main Gate', style: AppTextStyles.secondary),
+                        Expanded(
+                          child: Text(
+                            arrived
+                                ? 'Your driver has arrived at ${ride.pickupLocationName ?? 'the pickup point'}'
+                                : 'On the way to ${ride.pickupLocationName ?? 'your pickup point'}',
+                            style: AppTextStyles.secondary,
+                          ),
+                        ),
                       ],
                     ),
                   ),
                   const Spacer(),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () {},
-                          icon: const Icon(Icons.call_outlined, size: 18),
-                          label: const Text('Call'),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () {},
-                          icon: const Icon(Icons.message_outlined, size: 18),
-                          label: const Text('Message'),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () => context.push('/on-the-way'),
-                          child: const Text('Details'),
-                        ),
-                      ),
-                    ],
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      onPressed: () async {
+                        final cancelled = await ref.read(rideControllerProvider.notifier).cancelRide();
+                        if (cancelled && context.mounted) context.go('/home');
+                      },
+                      style: OutlinedButton.styleFrom(foregroundColor: AppColors.error),
+                      child: const Text('Cancel Ride'),
+                    ),
                   ),
                 ],
               ),

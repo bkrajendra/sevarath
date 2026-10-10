@@ -1,14 +1,85 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
+
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
-import 'models/mock_campus_data.dart';
+import 'models/ride.dart';
+import 'providers/ride_provider.dart';
 
-class RideDetailsScreen extends StatelessWidget {
-  const RideDetailsScreen({super.key});
+class RideDetailsScreen extends ConsumerWidget {
+  const RideDetailsScreen({super.key, this.rideId});
+
+  /// Opened from Rides history with a specific past ride's id, or left null to show whatever
+  /// RideController currently holds (e.g. right after this ride just completed).
+  final String? rideId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentRide = ref.watch(rideControllerProvider).ride;
+    final id = rideId ?? currentRide?.id;
+
+    if (id == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Ride Details')),
+        body: Center(child: Text('No ride to show', style: AppTextStyles.secondary)),
+      );
+    }
+
+    if (currentRide != null && currentRide.id == id) {
+      return _RideDetailsBody(ride: currentRide);
+    }
+
+    final rideAsync = ref.watch(rideByIdProvider(id));
+    return rideAsync.when(
+      data: (ride) => _RideDetailsBody(ride: ride),
+      loading: () => Scaffold(
+        appBar: AppBar(title: const Text('Ride Details')),
+        body: const Center(child: CircularProgressIndicator()),
+      ),
+      error: (error, stackTrace) => Scaffold(
+        appBar: AppBar(title: const Text('Ride Details')),
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Could not load this ride', style: AppTextStyles.bodyStrong),
+              const SizedBox(height: 8),
+              OutlinedButton(
+                onPressed: () => ref.invalidate(rideByIdProvider(id)),
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RideDetailsBody extends StatelessWidget {
+  const _RideDetailsBody({required this.ride});
+
+  final Ride ride;
 
   @override
   Widget build(BuildContext context) {
+    final timeFormat = DateFormat('h:mm a');
+    final distanceKm =
+        Geolocator.distanceBetween(
+          ride.pickupLatitude,
+          ride.pickupLongitude,
+          ride.destinationLatitude,
+          ride.destinationLongitude,
+        ) /
+        1000;
+    final duration = (ride.startedAt != null && ride.completedAt != null)
+        ? ride.completedAt!.difference(ride.startedAt!)
+        : null;
+    final isCompleted = ride.status == RideStatus.completed;
+
     return Scaffold(
       appBar: AppBar(title: const Text('Ride Details')),
       body: ListView(
@@ -20,12 +91,20 @@ class RideDetailsScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _StopRow(dotColor: AppColors.pickupGreen, title: 'Main Gate', time: '9:32 AM'),
+                  _StopRow(
+                    dotColor: AppColors.pickupGreen,
+                    title: ride.pickupLocationName ?? 'Pickup',
+                    time: timeFormat.format(ride.requestedAt),
+                  ),
                   const Padding(
                     padding: EdgeInsets.only(left: 5),
                     child: SizedBox(height: 16, child: VerticalDivider(thickness: 2, width: 2)),
                   ),
-                  _StopRow(dotColor: AppColors.destinationRed, title: 'Shantivan', time: '9:41 AM'),
+                  _StopRow(
+                    dotColor: AppColors.destinationRed,
+                    title: ride.destinationLocationName ?? 'Destination',
+                    time: ride.completedAt != null ? timeFormat.format(ride.completedAt!) : '--',
+                  ),
                 ],
               ),
             ),
@@ -35,38 +114,50 @@ class RideDetailsScreen extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppColors.ctaGreen.withValues(alpha: 0.08),
+              color: (isCompleted ? AppColors.ctaGreen : AppColors.error).withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(16),
             ),
             child: Row(
               children: [
-                const CircleAvatar(
-                  backgroundColor: AppColors.ctaGreen,
-                  child: Icon(Icons.check_rounded, color: Colors.white),
+                CircleAvatar(
+                  backgroundColor: isCompleted ? AppColors.ctaGreen : AppColors.error,
+                  child: Icon(isCompleted ? Icons.check_rounded : Icons.close_rounded, color: Colors.white),
                 ),
                 const SizedBox(width: 12),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Ride Completed', style: AppTextStyles.bodyStrong),
-                    Text('9 min · 1.2 km', style: AppTextStyles.secondary),
+                    Text(isCompleted ? 'Ride Completed' : _statusLabel(ride.status), style: AppTextStyles.bodyStrong),
+                    Text(
+                      duration != null
+                          ? '${duration.inMinutes} min · ${distanceKm.toStringAsFixed(1)} km'
+                          : '${distanceKm.toStringAsFixed(1)} km',
+                      style: AppTextStyles.secondary,
+                    ),
                   ],
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 16),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const CircleAvatar(
-              backgroundColor: AppColors.surfaceTint,
-              child: Icon(Icons.person_rounded, color: AppColors.brandGreen),
+          if (ride.driver != null) ...[
+            const SizedBox(height: 16),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const CircleAvatar(
+                backgroundColor: AppColors.surfaceTint,
+                child: Icon(Icons.person_rounded, color: AppColors.brandGreen),
+              ),
+              title: Text(ride.driver!.name, style: AppTextStyles.bodyStrong),
+              subtitle: Text(ride.vehicleCode ?? ride.driver!.driverCode, style: AppTextStyles.secondary),
             ),
-            title: Text(mockDriver.name, style: AppTextStyles.bodyStrong),
-            subtitle: Text(mockDriver.vehicleCode, style: AppTextStyles.secondary),
-          ),
+          ],
           const Divider(height: 24),
-          _ActionTile(icon: Icons.star_outline_rounded, label: 'Rate this ride', onTap: () => context.push('/rate-ride')),
+          if (isCompleted)
+            _ActionTile(
+              icon: Icons.star_outline_rounded,
+              label: 'Rate this ride',
+              onTap: () => context.push('/rate-ride'),
+            ),
           _ActionTile(icon: Icons.flag_outlined, label: 'Report an issue', onTap: () {}),
           _ActionTile(icon: Icons.help_outline_rounded, label: 'Ride help', onTap: () {}),
           const SizedBox(height: 24),
@@ -77,6 +168,21 @@ class RideDetailsScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  String _statusLabel(RideStatus status) {
+    switch (status) {
+      case RideStatus.cancelledByUser:
+        return 'Cancelled by you';
+      case RideStatus.cancelledByDriver:
+        return 'Cancelled by driver';
+      case RideStatus.cancelledBySystem:
+        return 'Cancelled';
+      case RideStatus.noDriverAvailable:
+        return 'No driver was available';
+      default:
+        return 'Ride ended';
+    }
   }
 }
 

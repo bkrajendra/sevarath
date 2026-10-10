@@ -1,16 +1,179 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../shared/widgets/campus_map_preview.dart';
+import '../destination/data/campus_locations_repository.dart';
+import 'models/ride_models.dart';
+import 'providers/ride_provider.dart';
 
-class ConfirmRideScreen extends StatelessWidget {
-  const ConfirmRideScreen({super.key});
+/// A stop within this distance of the device's GPS fix is shown/sent as "pickup near" that stop
+/// instead of a bare "Current Location" - purely a display/pickupLocationName nicety, the raw
+/// GPS coordinates (not the stop's) are always what's actually sent as pickupLatitude/Longitude.
+const _nearbyStopThresholdMeters = 150.0;
+
+/// Rough ETA only - no routing engine is wired into the mobile app yet (Valhalla integration is
+/// backend-only today, see docs/plan.md Phase 6). A straight-line distance over a flat assumed
+/// campus-cart speed is an honest estimate, not a disguised placeholder string.
+const _assumedAverageSpeedKmh = 15.0;
+
+class ConfirmRideScreen extends ConsumerStatefulWidget {
+  const ConfirmRideScreen({super.key, required this.destination});
+
+  final CampusLocationUi? destination;
+
+  @override
+  ConsumerState<ConfirmRideScreen> createState() => _ConfirmRideScreenState();
+}
+
+class _ConfirmRideScreenState extends ConsumerState<ConfirmRideScreen> {
+  Position? _position;
+  String? _locationError;
+  bool _resolvingLocation = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _resolvePickup();
+  }
+
+  Future<void> _resolvePickup() async {
+    setState(() {
+      _resolvingLocation = true;
+      _locationError = null;
+    });
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        setState(() {
+          _locationError = 'Location services are off. Enable them to request a ride.';
+          _resolvingLocation = false;
+        });
+        return;
+      }
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
+        setState(() {
+          _locationError = 'Location permission is required to request a ride.';
+          _resolvingLocation = false;
+        });
+        return;
+      }
+      final position = await Geolocator.getCurrentPosition();
+      setState(() {
+        _position = position;
+        _resolvingLocation = false;
+      });
+    } catch (_) {
+      setState(() {
+        _locationError = 'Could not determine your location.';
+        _resolvingLocation = false;
+      });
+    }
+  }
+
+  CampusLocationUi? _nearestStop(List<CampusLocationUi> locations, Position position) {
+    CampusLocationUi? nearest;
+    double? nearestDistance;
+    for (final loc in locations) {
+      final distance = Geolocator.distanceBetween(
+        position.latitude,
+        position.longitude,
+        loc.latitude,
+        loc.longitude,
+      );
+      if (nearestDistance == null || distance < nearestDistance) {
+        nearestDistance = distance;
+        nearest = loc;
+      }
+    }
+    if (nearest == null || nearestDistance == null || nearestDistance > _nearbyStopThresholdMeters) {
+      return null;
+    }
+    return nearest;
+  }
+
+  Future<void> _confirm(CampusLocationUi destination, String? pickupLocationName) async {
+    final position = _position;
+    if (position == null) return;
+    final controller = ref.read(rideControllerProvider.notifier);
+    final ok = await controller.requestRide(
+      pickupLatitude: position.latitude,
+      pickupLongitude: position.longitude,
+      pickupLocationName: pickupLocationName,
+      destinationLatitude: destination.latitude,
+      destinationLongitude: destination.longitude,
+      destinationLocationName: destination.name,
+    );
+    if (ok && mounted) {
+      context.pushReplacement('/finding-vehicle');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final destination = widget.destination;
+    if (destination == null) {
+      return Scaffold(
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('No destination selected', style: AppTextStyles.bodyStrong),
+                const SizedBox(height: 12),
+                OutlinedButton(onPressed: () => context.pop(), child: const Text('Go Back')),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (_resolvingLocation) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    if (_locationError != null) {
+      return Scaffold(
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(_locationError!, style: AppTextStyles.body, textAlign: TextAlign.center),
+                const SizedBox(height: 12),
+                ElevatedButton(onPressed: _resolvePickup, child: const Text('Retry')),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    final position = _position!;
+    final locationsAsync = ref.watch(campusLocationsProvider);
+    final nearestStop = locationsAsync.maybeWhen(
+      data: (locations) => _nearestStop(locations, position),
+      orElse: () => null,
+    );
+    final pickupLabel = nearestStop != null ? 'Near ${nearestStop.name}' : 'Current Location';
+
+    final distanceKm =
+        Geolocator.distanceBetween(position.latitude, position.longitude, destination.latitude, destination.longitude) /
+        1000;
+    final etaMinutes = (distanceKm / _assumedAverageSpeedKmh * 60).ceil().clamp(1, 999);
+
+    final rideState = ref.watch(rideControllerProvider);
+
     return Scaffold(
       body: Column(
         children: [
@@ -18,10 +181,11 @@ class ConfirmRideScreen extends StatelessWidget {
             flex: 3,
             child: Stack(
               children: [
-                const Positioned.fill(
+                Positioned.fill(
                   child: CampusMapPreview(
-                    pickup: LatLng(24.4828, 72.7820),
-                    destination: LatLng(24.4850, 72.7850),
+                    pickup: LatLng(position.latitude, position.longitude),
+                    destination: LatLng(destination.latitude, destination.longitude),
+                    center: LatLng(position.latitude, position.longitude),
                   ),
                 ),
                 Positioned(
@@ -63,8 +227,8 @@ class ConfirmRideScreen extends StatelessWidget {
                 children: [
                   _RouteRow(
                     dotColor: AppColors.pickupGreen,
-                    title: 'Main Gate',
-                    subtitle: 'Headquarters',
+                    title: pickupLabel,
+                    subtitle: 'Your location',
                   ),
                   const Padding(
                     padding: EdgeInsets.only(left: 5),
@@ -75,8 +239,8 @@ class ConfirmRideScreen extends StatelessWidget {
                   ),
                   _RouteRow(
                     dotColor: AppColors.destinationRed,
-                    title: 'Shantivan',
-                    subtitle: 'Meditation Complex',
+                    title: destination.name,
+                    subtitle: destination.category,
                   ),
                   const SizedBox(height: 16),
                   Row(
@@ -87,7 +251,7 @@ class ConfirmRideScreen extends StatelessWidget {
                         color: AppColors.textSecondary,
                       ),
                       const SizedBox(width: 6),
-                      Text('1.2 km', style: AppTextStyles.secondary),
+                      Text('${distanceKm.toStringAsFixed(1)} km', style: AppTextStyles.secondary),
                       const SizedBox(width: 16),
                       const Icon(
                         Icons.access_time_rounded,
@@ -95,15 +259,30 @@ class ConfirmRideScreen extends StatelessWidget {
                         color: AppColors.textSecondary,
                       ),
                       const SizedBox(width: 6),
-                      Text('~ 4 min', style: AppTextStyles.secondary),
+                      Text('~ $etaMinutes min', style: AppTextStyles.secondary),
                     ],
                   ),
+                  if (rideState.errorMessage != null) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      rideState.errorMessage!,
+                      style: AppTextStyles.secondary.copyWith(color: AppColors.error),
+                    ),
+                  ],
                   const Spacer(),
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: () => context.push('/finding-vehicle'),
-                      child: const Text('Request Ride'),
+                      onPressed: rideState.isRequesting
+                          ? null
+                          : () => _confirm(destination, nearestStop?.name),
+                      child: rideState.isRequesting
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            )
+                          : const Text('Request Ride'),
                     ),
                   ),
                 ],
@@ -137,12 +316,14 @@ class _RouteRow extends StatelessWidget {
           decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
         ),
         const SizedBox(width: 14),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: AppTextStyles.bodyStrong),
-            Text(subtitle, style: AppTextStyles.caption),
-          ],
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: AppTextStyles.bodyStrong),
+              Text(subtitle, style: AppTextStyles.caption),
+            ],
+          ),
         ),
       ],
     );

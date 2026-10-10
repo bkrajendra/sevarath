@@ -3,7 +3,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 
 class WhereToCard extends StatelessWidget {
-  const WhereToCard({super.key, required this.onTap, this.pickupLabel = 'Main Gate'});
+  const WhereToCard({super.key, required this.onTap, this.pickupLabel = 'Current Location'});
 
   final VoidCallback onTap;
   final String pickupLabel;

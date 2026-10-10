@@ -44,6 +44,8 @@ CampusLocationUi campusLocationUiFromJson(
     icon: _typeIcons[type] ?? Icons.place,
     badgeColor:
         AppColors.categoryBadges[index % AppColors.categoryBadges.length],
+    latitude: (json['latitude'] as num).toDouble(),
+    longitude: (json['longitude'] as num).toDouble(),
     type: type,
   );
 }
