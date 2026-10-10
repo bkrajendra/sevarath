@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -99,7 +100,11 @@ export function VehiclesPage() {
               <TableBody>
                 {vehicles?.map((vehicle) => (
                   <TableRow key={vehicle.id}>
-                    <TableCell className="font-medium">{vehicle.vehicleCode}</TableCell>
+                    <TableCell className="font-medium">
+                      <Link to={`/vehicles/${vehicle.id}`} className="hover:underline">
+                        {vehicle.vehicleCode}
+                      </Link>
+                    </TableCell>
                     <TableCell>{vehicle.registrationNumber ?? '-'}</TableCell>
                     <TableCell>{vehicle.vehicleType}</TableCell>
                     <TableCell>{vehicle.capacity}</TableCell>

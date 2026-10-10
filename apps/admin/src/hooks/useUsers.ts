@@ -40,6 +40,28 @@ export function useUsers(query: UsersQuery) {
   });
 }
 
+/**
+ * GET /api/v1/users/:id - ADMIN-only, same as the list endpoint above. Used by the driver-detail
+ * page to show the linked user's name/mobile/email; callers must handle a 403 gracefully (an
+ * OPERATOR can still view a driver's own fields, just not the linked user block) rather than
+ * treat it as a hard error.
+ */
+export function useUser(id: string | undefined) {
+  return useQuery({
+    queryKey: ['users', 'detail', id] as const,
+    queryFn: async () => {
+      const { data, error } = await api.GET('/api/v1/users/{id}', { params: { path: { id: id! } } });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!id,
+    retry: (failureCount, err) => {
+      if (isForbidden(err)) return false;
+      return failureCount < 3;
+    },
+  });
+}
+
 export function isForbidden(err: unknown): boolean {
   if (!err || typeof err !== 'object') return false;
   const statusCode = (err as { statusCode?: unknown; status?: unknown }).statusCode ?? (err as { status?: unknown }).status;

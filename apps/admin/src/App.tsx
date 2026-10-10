@@ -6,7 +6,9 @@ import { LoginPage } from '@/pages/Login';
 import { DashboardLayout } from '@/pages/DashboardLayout';
 import { DashboardPage } from '@/pages/Dashboard';
 import { DriversPage } from '@/pages/Drivers';
+import { DriverDetailPage } from '@/pages/DriverDetail';
 import { VehiclesPage } from '@/pages/Vehicles';
+import { VehicleDetailPage } from '@/pages/VehicleDetail';
 import { CampusLocationsPage } from '@/pages/CampusLocations';
 import { UsersPage } from '@/pages/Users';
 import { RidesPage } from '@/pages/Rides';
@@ -26,7 +28,9 @@ export default function App() {
               <Route element={<DashboardLayout />}>
                 <Route path="/" element={<DashboardPage />} />
                 <Route path="/drivers" element={<DriversPage />} />
+                <Route path="/drivers/:id" element={<DriverDetailPage />} />
                 <Route path="/vehicles" element={<VehiclesPage />} />
+                <Route path="/vehicles/:id" element={<VehicleDetailPage />} />
                 <Route path="/campus-locations" element={<CampusLocationsPage />} />
                 <Route path="/users" element={<UsersPage />} />
                 <Route path="/rides" element={<RidesPage />} />

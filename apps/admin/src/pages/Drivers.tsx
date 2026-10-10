@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Check, Copy } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -204,7 +205,11 @@ export function DriversPage() {
               <TableBody>
                 {drivers?.map((driver) => (
                   <TableRow key={driver.id}>
-                    <TableCell className="font-medium">{driver.driverCode}</TableCell>
+                    <TableCell className="font-medium">
+                      <Link to={`/drivers/${driver.id}`} className="hover:underline">
+                        {driver.driverCode}
+                      </Link>
+                    </TableCell>
                     <TableCell>
                       <Badge variant={statusVariant[driver.status]}>{driver.status}</Badge>
                     </TableCell>

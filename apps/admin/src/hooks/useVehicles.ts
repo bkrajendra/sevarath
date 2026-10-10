@@ -5,6 +5,7 @@ import type { components } from '@/types/api';
 const VEHICLES_KEY = ['vehicles'] as const;
 
 type CreateVehicleBody = components['schemas']['CreateVehicleDto'];
+type UpdateVehicleBody = components['schemas']['UpdateVehicleDto'];
 
 export function useVehicles() {
   return useQuery({
@@ -46,6 +47,39 @@ export function useUpdateVehicleStatus() {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: VEHICLES_KEY }),
+    onSuccess: (_data, { id }) => {
+      queryClient.invalidateQueries({ queryKey: VEHICLES_KEY });
+      queryClient.invalidateQueries({ queryKey: ['vehicles', 'detail', id] });
+    },
+  });
+}
+
+export function useVehicle(id: string | undefined) {
+  return useQuery({
+    queryKey: ['vehicles', 'detail', id] as const,
+    queryFn: async () => {
+      const { data, error } = await api.GET('/api/v1/vehicles/{id}', { params: { path: { id: id! } } });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!id,
+  });
+}
+
+export function useUpdateVehicle() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...body }: UpdateVehicleBody & { id: string }) => {
+      const { data, error } = await api.PATCH('/api/v1/vehicles/{id}', {
+        params: { path: { id } },
+        body,
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (_data, { id }) => {
+      queryClient.invalidateQueries({ queryKey: VEHICLES_KEY });
+      queryClient.invalidateQueries({ queryKey: ['vehicles', 'detail', id] });
+    },
   });
 }

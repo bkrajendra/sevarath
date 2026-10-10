@@ -44,6 +44,36 @@ export function useProvisionDriver() {
   });
 }
 
+export function useDriver(id: string | undefined) {
+  return useQuery({
+    queryKey: ['drivers', 'detail', id] as const,
+    queryFn: async () => {
+      const { data, error } = await api.GET('/api/v1/drivers/{id}', { params: { path: { id: id! } } });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!id,
+  });
+}
+
+export function useUpdateDriver() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, driverCode }: { id: string; driverCode: string }) => {
+      const { data, error } = await api.PATCH('/api/v1/drivers/{id}', {
+        params: { path: { id } },
+        body: { driverCode },
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (_data, { id }) => {
+      queryClient.invalidateQueries({ queryKey: DRIVERS_KEY });
+      queryClient.invalidateQueries({ queryKey: ['drivers', 'detail', id] });
+    },
+  });
+}
+
 export function useApproveDriver() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -54,7 +84,10 @@ export function useApproveDriver() {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: DRIVERS_KEY }),
+    onSuccess: (_data, id) => {
+      queryClient.invalidateQueries({ queryKey: DRIVERS_KEY });
+      queryClient.invalidateQueries({ queryKey: ['drivers', 'detail', id] });
+    },
   });
 }
 
@@ -68,7 +101,10 @@ export function useSuspendDriver() {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: DRIVERS_KEY }),
+    onSuccess: (_data, id) => {
+      queryClient.invalidateQueries({ queryKey: DRIVERS_KEY });
+      queryClient.invalidateQueries({ queryKey: ['drivers', 'detail', id] });
+    },
   });
 }
 
@@ -83,6 +119,9 @@ export function useAssignVehicle() {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: DRIVERS_KEY }),
+    onSuccess: (_data, { id }) => {
+      queryClient.invalidateQueries({ queryKey: DRIVERS_KEY });
+      queryClient.invalidateQueries({ queryKey: ['drivers', 'detail', id] });
+    },
   });
 }
