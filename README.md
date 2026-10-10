@@ -148,6 +148,8 @@ Kubernetes manifests for the `sevarath` namespace (API, Postgres+PostGIS, Redis,
 | [docs/architecture.md](docs/architecture.md) | Tech stack, system & module architecture, API/versioning, WebSocket design, security, infrastructure topology, observability |
 | [docs/frontend-guidelines.md](docs/frontend-guidelines.md) | Admin app (React/Tailwind/shadcn/baseui) component and state-management conventions |
 | [docs/plan.md](docs/plan.md) | Phased delivery plan, deliverables per phase, open decisions |
+| [docs/open-items.md](docs/open-items.md) | Running log of workaround decisions and gaps found while implementing the plan |
+| [docs/repo-split-plan.md](docs/repo-split-plan.md) | Deferred plan to extract `apps/mobile` into its own repository |
 | [k8s/README.md](k8s/README.md) | Kubernetes deploy order, secrets, image registry |
 
 ## 11. MVP Success Criteria
