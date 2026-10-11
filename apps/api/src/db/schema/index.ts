@@ -13,3 +13,4 @@ export * from './outbox-events';
 export * from './idempotency-keys';
 export * from './device-tokens';
 export * from './refresh-tokens';
+export * from './password-reset-codes';

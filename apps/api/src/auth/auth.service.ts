@@ -2,18 +2,26 @@ import { ConflictException, Inject, Injectable, Logger, UnauthorizedException } 
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
-import { createHash, randomUUID } from 'crypto';
-import { eq } from 'drizzle-orm';
+import { createHash, randomInt, randomUUID } from 'crypto';
+import { and, desc, eq, isNull } from 'drizzle-orm';
 import type * as admin from 'firebase-admin';
 import { UsersService } from '../users/users.service';
+import { MailService } from '../mail/mail.service';
 import { DRIZZLE, type DrizzleDb } from '../db/drizzle.module';
-import { refreshTokens, type RefreshToken, type User } from '../db/schema';
+import { passwordResetCodes, refreshTokens, users, type RefreshToken, type User } from '../db/schema';
 import type { JwtPayload } from './types/jwt-payload.interface';
 import type { TokenResponseDto } from './dto/token-response.dto';
 import type { RegisterDto } from './dto/register.dto';
 import type { PasswordLoginDto } from './dto/password-login.dto';
+import type { PasswordResetConfirmDto } from './dto/password-reset-confirm.dto';
 
 const SALT_ROUNDS = 10;
+
+/** How long an emailed reset code stays valid (docs/plan.md §5/10.1). */
+const PASSWORD_RESET_CODE_TTL_MS = 10 * 60 * 1000;
+
+/** Same "don't leak which case it is" message for every reset-confirm failure mode. */
+const INVALID_RESET_CODE_MESSAGE = 'Invalid or expired code';
 
 /**
  * Generic rejection used for every refresh-token failure mode (bad signature, expired, unknown
@@ -34,6 +42,16 @@ function hashRefreshToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
 }
 
+/** SHA-256 hex digest of a 6-digit reset code - see `passwordResetCodes`' own doc comment for why. */
+function hashResetCode(code: string): string {
+  return createHash('sha256').update(code).digest('hex');
+}
+
+/** A random 6-digit code, zero-padded (`randomInt` is cryptographically secure, unlike `Math.random`). */
+function generateResetCode(): string {
+  return randomInt(0, 1_000_000).toString().padStart(6, '0');
+}
+
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
@@ -42,6 +60,7 @@ export class AuthService {
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
+    private readonly mailService: MailService,
     @Inject(DRIZZLE) private readonly db: DrizzleDb,
   ) {}
 
@@ -205,6 +224,73 @@ export class AuthService {
       return;
     }
     await this.db.update(refreshTokens).set({ revokedAt: new Date() }).where(eq(refreshTokens.id, row.id));
+  }
+
+  /**
+   * Starts a password reset: if `identifier` matches a user with an email on file, emails them a
+   * fresh 6-digit code and invalidates any earlier unused codes for that user (so only the most
+   * recently requested code can ever succeed). Always resolves the same way regardless of
+   * whether the identifier matched anyone, or matched someone with no email - same
+   * account-enumeration posture `loginWithPassword` already uses; the caller (`AuthController`)
+   * returns one generic response either way.
+   */
+  async requestPasswordReset(identifier: string): Promise<void> {
+    const user = await this.usersService.findByMobileOrEmail(identifier, identifier);
+    if (!user || !user.email) {
+      return;
+    }
+
+    const code = generateResetCode();
+    await this.db.transaction(async (tx) => {
+      // Earlier unused codes for this user are superseded, not left valid alongside the new
+      // one - otherwise a user who requests twice could still redeem the first email's code.
+      await tx
+        .update(passwordResetCodes)
+        .set({ usedAt: new Date() })
+        .where(and(eq(passwordResetCodes.userId, user.id), isNull(passwordResetCodes.usedAt)));
+
+      await tx.insert(passwordResetCodes).values({
+        userId: user.id,
+        codeHash: hashResetCode(code),
+        expiresAt: new Date(Date.now() + PASSWORD_RESET_CODE_TTL_MS),
+      });
+    });
+
+    const sent = await this.mailService.sendPasswordResetCode({ to: user.email, name: user.name, code });
+    if (!sent) {
+      this.logger.warn(`Password reset code generated for userId=${user.id} but the email failed to send`);
+    }
+  }
+
+  /**
+   * Completes a password reset: validates the most recent unused, unexpired code for the matched
+   * user, sets a new password, marks the code used, and - like `refresh()`'s reuse-detection
+   * branch - revokes every existing refresh token for that user, forcing re-login everywhere.
+   */
+  async confirmPasswordReset(dto: PasswordResetConfirmDto): Promise<void> {
+    const user = await this.usersService.findByMobileOrEmail(dto.identifier, dto.identifier);
+    if (!user) {
+      throw new UnauthorizedException(INVALID_RESET_CODE_MESSAGE);
+    }
+
+    const [row] = await this.db
+      .select()
+      .from(passwordResetCodes)
+      .where(and(eq(passwordResetCodes.userId, user.id), isNull(passwordResetCodes.usedAt)))
+      .orderBy(desc(passwordResetCodes.createdAt))
+      .limit(1);
+
+    if (!row || row.expiresAt.getTime() <= Date.now() || hashResetCode(dto.code) !== row.codeHash) {
+      throw new UnauthorizedException(INVALID_RESET_CODE_MESSAGE);
+    }
+
+    const passwordHash = await bcrypt.hash(dto.newPassword, SALT_ROUNDS);
+    await this.db.transaction(async (tx) => {
+      await tx.update(passwordResetCodes).set({ usedAt: new Date() }).where(eq(passwordResetCodes.id, row.id));
+      await tx.update(users).set({ passwordHash, updatedAt: new Date() }).where(eq(users.id, user.id));
+    });
+
+    await this.revokeAllForUser(user.id);
   }
 
   private async revokeAllForUser(userId: string): Promise<void> {

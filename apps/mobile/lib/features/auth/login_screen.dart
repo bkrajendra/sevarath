@@ -103,10 +103,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           )
                         : const Text('Log In'),
                   ),
+                  // Password reset is rider-app UI only (docs/plan.md §5/10.1) - drivers rely on
+                  // an Admin for credential issues, same as registration below.
+                  if (!FlavorConfig.isDriver) ...[
+                    const SizedBox(height: 8),
+                    TextButton(
+                      onPressed: () => context.push('/forgot-password'),
+                      child: const Text('Forgot password?'),
+                    ),
+                  ],
                   // Drivers are provisioned by an Admin, not self-registered - the driver
                   // flavor has no /register route at all (see driver_router.dart).
                   if (!FlavorConfig.isDriver) ...[
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 8),
                     TextButton(
                       onPressed: () => context.push('/register'),
                       child: const Text("Don't have an account? Create one"),

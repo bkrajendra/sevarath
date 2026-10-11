@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/auth/forgot_password_screen.dart';
 import '../../features/auth/login_screen.dart';
 import '../../features/auth/providers/auth_provider.dart';
 import '../../features/auth/register_screen.dart';
@@ -36,7 +37,8 @@ final GoRouter appRouter = GoRouter(
     final isLoading = authState.status == AuthStatus.unknown;
     final goingToAuthScreen =
         state.matchedLocation == '/login' ||
-        state.matchedLocation == '/register';
+        state.matchedLocation == '/register' ||
+        state.matchedLocation == '/forgot-password';
     final goingToSplash = state.matchedLocation == '/splash';
 
     if (isLoading) {
@@ -70,6 +72,11 @@ final GoRouter appRouter = GoRouter(
       path: '/register',
       parentNavigatorKey: rootNavigatorKey,
       builder: (context, state) => const RegisterScreen(),
+    ),
+    GoRoute(
+      path: '/forgot-password',
+      parentNavigatorKey: rootNavigatorKey,
+      builder: (context, state) => const ForgotPasswordScreen(),
     ),
 
     StatefulShellRoute.indexedStack(

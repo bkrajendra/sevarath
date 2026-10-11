@@ -11,6 +11,8 @@ import { LogoutDto } from './dto/logout.dto';
 import { TokenResponseDto } from './dto/token-response.dto';
 import { RegisterDto } from './dto/register.dto';
 import { PasswordLoginDto } from './dto/password-login.dto';
+import { PasswordResetRequestDto } from './dto/password-reset-request.dto';
+import { PasswordResetConfirmDto } from './dto/password-reset-confirm.dto';
 
 /**
  * Stricter-than-global rate limit for this controller's unauthenticated,
@@ -60,6 +62,30 @@ export class AuthController {
   @ApiOkResponse({ type: TokenResponseDto })
   async loginWithPassword(@Body() dto: PasswordLoginDto): Promise<TokenResponseDto> {
     return this.authService.loginWithPassword(dto);
+  }
+
+  /**
+   * Starts a password reset (docs/plan.md §5/10.1). Always 204s, whether or not `identifier`
+   * matched an account, or matched one with no email on file - same account-enumeration posture
+   * every other auth endpoint in this controller already uses.
+   */
+  @Post('password-reset/request')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Throttle(AUTH_BRUTE_FORCE_THROTTLE)
+  @ApiBody({ type: PasswordResetRequestDto })
+  @ApiNoContentResponse()
+  async requestPasswordReset(@Body() dto: PasswordResetRequestDto): Promise<void> {
+    await this.authService.requestPasswordReset(dto.identifier);
+  }
+
+  /** Completes a password reset with the emailed 6-digit code (docs/plan.md §5/10.1). */
+  @Post('password-reset/confirm')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Throttle(AUTH_BRUTE_FORCE_THROTTLE)
+  @ApiBody({ type: PasswordResetConfirmDto })
+  @ApiNoContentResponse()
+  async confirmPasswordReset(@Body() dto: PasswordResetConfirmDto): Promise<void> {
+    await this.authService.confirmPasswordReset(dto);
   }
 
   /**

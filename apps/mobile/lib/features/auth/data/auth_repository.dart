@@ -82,6 +82,32 @@ class AuthRepository {
     }
   }
 
+  Future<void> requestPasswordReset({required String identifier}) async {
+    try {
+      await _apiClient.dio.post(
+        '/auth/password-reset/request',
+        data: {'identifier': identifier},
+      );
+    } on DioException catch (e) {
+      throw AuthException(messageForAuthError(e));
+    }
+  }
+
+  Future<void> confirmPasswordReset({
+    required String identifier,
+    required String code,
+    required String newPassword,
+  }) async {
+    try {
+      await _apiClient.dio.post(
+        '/auth/password-reset/confirm',
+        data: {'identifier': identifier, 'code': code, 'newPassword': newPassword},
+      );
+    } on DioException catch (e) {
+      throw AuthException(messageForAuthError(e));
+    }
+  }
+
   Future<UserProfile> getCurrentUser() async {
     final response = await _apiClient.dio.get('/users/me');
     return UserProfile.fromJson(response.data as Map<String, dynamic>);

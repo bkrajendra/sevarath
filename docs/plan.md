@@ -244,12 +244,12 @@ The backend is done across every phase (§0/§2 above), and **both** Flutter fla
 
 Designed via the superpowers brainstorming process (mixed bounded/architectural batch), reviewed against the actual schema/gateway/mobile code before being written down here, and approved by the user with one correction (10.5's mobile-handling redesign, see below). Per the user's own new standing instruction, **this section is written before implementation starts, and gets checked off/updated as each sub-phase lands** - not written retroactively.
 
-### 10.1 - Password reset (email-based) `[NOT STARTED]`
+### 10.1 - Password reset (email-based) `[DONE, 2026-10-11 - not yet deployed/verified live]`
 
-* [ ] New `password_reset_codes` table: `userId` FK, SHA-256-hashed 6-digit code (lookup hash, not bcrypt - same reasoning as `refresh_tokens.token_hash`), 10-minute expiry, single-use.
-* [ ] `POST /auth/password-reset/request {identifier}` - always returns a generic "if an account with an email exists, a code was sent" response (no account-enumeration leak, matches `loginWithPassword`'s existing posture); emails the code via the already-wired Resend integration (`mail.service.ts`) only when the matched user actually has an email on file.
-* [ ] `POST /auth/password-reset/confirm {identifier, code, newPassword}` - validates the code, sets a new `passwordHash`, and revokes every existing refresh token for that user (forces re-login everywhere, standard post-reset hygiene, same `revokeAllForUser` helper `refresh()`'s reuse-detection path already uses).
-* [ ] "Forgot password?" entry point on the rider app's password-login screen only (drivers stay admin-managed per 10.6) - enter identifier → code+new-password screen → success → back to login.
+* [x] New `password_reset_codes` table: `userId` FK, SHA-256-hashed 6-digit code (lookup hash, not bcrypt - same reasoning as `refresh_tokens.token_hash`), 10-minute expiry, single-use. Migration `0008`.
+* [x] `POST /auth/password-reset/request {identifier}` - always returns a generic 204 (no account-enumeration leak, matches `loginWithPassword`'s existing posture); emails the code via the already-wired Resend integration (`mail.service.ts#sendPasswordResetCode`) only when the matched user actually has an email on file. A second request within the window supersedes (marks used) any earlier unused code for that user.
+* [x] `POST /auth/password-reset/confirm {identifier, code, newPassword}` - validates the code, sets a new `passwordHash`, and revokes every existing refresh token for that user (forces re-login everywhere, standard post-reset hygiene, same `revokeAllForUser` helper `refresh()`'s reuse-detection path already uses). Both endpoints covered by integration tests in `test/auth-password.integration-spec.ts` (code creation/supersession, successful reset + old-token revocation, wrong code, expired code).
+* [x] "Forgot password?" entry point on the rider app's password-login screen only (drivers stay admin-managed per 10.6) - `forgot_password_screen.dart`, a single two-step screen (enter identifier → enter code+new password), reached via a new `/forgot-password` route.
 
 **Manual steps:** none - Resend is already live in production (used today for driver-credential emails).
 **Deliverable:** a rider with an email on file can recover a forgotten password without contacting an admin.
