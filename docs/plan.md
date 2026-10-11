@@ -281,12 +281,12 @@ Designed via the superpowers brainstorming process (mixed bounded/architectural 
 **Manual steps:** none.
 **Deliverable:** a rider can rate+comment on a completed ride for real, and favorite frequently-used campus locations for faster pickup/destination selection.
 
-### 10.4 - Admin dashboard `/ws` subscription (replacing polling) `[NOT STARTED]`
+### 10.4 - Admin dashboard `/ws` subscription (replacing polling) `[DONE, 2026-10-11 - not yet deployed/verified live]`
 
-* [ ] `LocationGateway.handleConnection` gains an `ADMIN`/`OPERATOR` branch that joins a new `adminRoom()`.
-* [ ] Every driver-location push also fans out to `adminRoom()` (today only the specific rider on that ride gets it), plus a new lightweight `AdminDashboardChanged` event on anything that moves the summary counts (driver status/availability change, vehicle status change, ride assigned/completed/cancelled).
-* [ ] Admin React app: add `socket.io-client`; new `useAdminSocket()` hook (mirrors the Flutter `ride_socket_service.dart` pattern) patches the live-map query cache on `DriverLocationUpdated` and invalidates the summary query on `AdminDashboardChanged`.
-* [ ] The existing 10s polling (`useAdminDashboard.ts`) stays as a fallback if the socket is ever disconnected, not replaced outright - same resilience posture the Flutter apps already use for their own sockets.
+* [x] `LocationGateway.handleConnection` gains an `ADMIN`/`OPERATOR` branch that joins a new `adminRoom()` (`'admins'`, a single shared room, not per-user).
+* [x] Every driver-location push also fans out to `adminRoom()` unconditionally (today only the specific rider on an active ride gets it - an idle driver is just as relevant to the live map). `DomainEventRealtimeConsumer` also emits a lightweight `AdminDashboardChanged {reason: eventType, rideId}` nudge to `adminRoom()` on every ride-lifecycle transition it processes, independent of who else is routed that event - covers the active-ride-count-relevant half of the summary; driver/vehicle status changes (which don't flow through the outbox) still rely on the fallback poll below.
+* [x] Admin React app: added `socket.io-client`; new `useAdminSocket(enabled)` hook (`src/hooks/useAdminSocket.ts`, mirrors the Flutter `ride_socket_service.dart` handshake contract exactly - bare `/ws`, `auth: {token}`) patches the live-map query cache in place on `DriverLocationUpdated` (falls back to a full refetch for an unrecognized `driverId`) and invalidates the summary query on `AdminDashboardChanged`; also forces one live-map refetch on every `connect` to resync anything missed while disconnected. Wired into `DashboardPage` only.
+* [x] The existing polling (`useAdminDashboard.ts`) stays as a fallback, not replaced outright: the summary keeps its original 10s interval (baseline guarantee, nudged sooner by the socket on the common case), the live map's interval was slowed to 60s (now a fallback resync, not the primary update path, now that the socket patches it in real time).
 
 **Scope:** Dashboard page only (live map + summary counts) - Drivers/Vehicles/Rides list pages keep polling, matching exactly what was asked (#42).
 **Manual steps:** none - deployed the same way as everything else (`kubectl rollout restart`).

@@ -17,6 +17,11 @@ export function setAccessToken(token: string | null) {
   accessToken = token;
 }
 
+/** Read-only access for non-HTTP consumers (e.g. the `/ws` socket handshake - see useAdminSocket.ts). */
+export function getAccessToken(): string | null {
+  return accessToken;
+}
+
 api.use({
   onRequest({ request }) {
     if (accessToken) {

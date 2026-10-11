@@ -47,6 +47,15 @@ export class DomainEventRealtimeConsumer extends WorkerHost {
       );
       return;
     }
+
+    // Admin dashboard (Phase 10.4): a lightweight "something changed, re-fetch the summary"
+    // nudge, independent of `recipients` below - the admin live view cares about every ride
+    // transition (it changes the active-ride count) even for eventTypes nobody else is routed
+    // to (e.g. RideSearchingDriver). Deliberately just a signal, not the full payload - the
+    // admin client re-fetches GET /admin/dashboard/summary, same "re-fetch over REST" posture
+    // this consumer's rider/driver payloads already document.
+    this.locationGateway.emitToAdmins('AdminDashboardChanged', { reason: eventType, rideId: aggregateId });
+
     if (recipients.length === 0) {
       return;
     }

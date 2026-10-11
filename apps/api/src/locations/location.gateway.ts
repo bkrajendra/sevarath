@@ -168,6 +168,13 @@ export function driverRoom(driverId: string): string {
 }
 
 /**
+ * Room every connected ADMIN/OPERATOR socket joins (Phase 10.4, docs/plan.md §5) - a single
+ * shared room, not per-user, since every admin sees the same live-map/dashboard data (unlike
+ * `userRoom`/`driverRoom`, which are scoped to what that specific person is allowed to see).
+ */
+const ADMIN_ROOM = 'admins';
+
+/**
  * Real-time location/ride-event gateway, namespace `/ws` (architecture.md §6.1).
  *
  * This gateway is deliberately domain-agnostic: it only knows *who* is allowed to receive
@@ -236,6 +243,10 @@ export class LocationGateway implements OnGatewayConnection, OnGatewayDisconnect
             `(socket=${client.id}): ${message}`,
         );
       }
+    }
+
+    if (user.role === 'ADMIN' || user.role === 'OPERATOR') {
+      await client.join(ADMIN_ROOM);
     }
 
     this.logger.log(
@@ -339,6 +350,18 @@ export class LocationGateway implements OnGatewayConnection, OnGatewayDisconnect
         this.logger.warn(`Failed to persist DB location snapshot for driver=${driverId}: ${message}`);
       }
 
+      // Every admin sees every driver's position on the live map (Phase 10.4) - unlike the
+      // rider broadcast below, this isn't gated on an active ride; an idle/AVAILABLE driver is
+      // exactly as relevant to the admin live map as one mid-ride.
+      this.emitToAdmins(DRIVER_LOCATION_UPDATED_EVENT, {
+        driverId,
+        latitude,
+        longitude,
+        heading,
+        speed,
+        recordedAt,
+      });
+
       const activeRide = await this.findActiveRideForDriver(driverId);
       if (!activeRide) {
         // A driver can be AVAILABLE/idle with no active ride - normal, not an error.
@@ -434,5 +457,10 @@ export class LocationGateway implements OnGatewayConnection, OnGatewayDisconnect
   /** Sends `event` with `payload` to every live connection for this driver's own `drivers.id`. */
   emitToDriver(driverId: string, event: string, payload: unknown): void {
     this.server.to(driverRoom(driverId)).emit(event, payload);
+  }
+
+  /** Sends `event` with `payload` to every connected ADMIN/OPERATOR socket (Phase 10.4). */
+  emitToAdmins(event: string, payload: unknown): void {
+    this.server.to(ADMIN_ROOM).emit(event, payload);
   }
 }

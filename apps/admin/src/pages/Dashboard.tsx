@@ -7,6 +7,7 @@ import { LiveDriverMap } from '@/components/live-driver-map';
 import { TableSkeleton } from '@/components/table-skeleton';
 import { formatRelativeTime } from '@/lib/format';
 import { useDashboardSummary, useLiveMap } from '@/hooks/useAdminDashboard';
+import { useAdminSocket } from '@/hooks/useAdminSocket';
 
 const vehicleStatusVariant = {
   AVAILABLE: 'success',
@@ -23,6 +24,7 @@ const availabilityVariant = {
 } as const;
 
 export function DashboardPage() {
+  useAdminSocket(true);
   const { data: summary, isLoading: summaryLoading, error: summaryError } = useDashboardSummary();
   const { data: liveMap, isLoading: liveMapLoading, error: liveMapError } = useLiveMap();
 
