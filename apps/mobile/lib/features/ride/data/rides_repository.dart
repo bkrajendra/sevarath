@@ -139,4 +139,16 @@ class RidesRepository {
       throw RideException(_messageForRideError(e));
     }
   }
+
+  /// POST /rides/:id/rating (Phase 10.3) - rider-only, ride must be COMPLETED.
+  Future<void> rateRide(String id, {required int rating, String? comment}) async {
+    try {
+      await _apiClient.dio.post(
+        '/rides/$id/rating',
+        data: {'rating': rating, 'comment': ?comment},
+      );
+    } on DioException catch (e) {
+      throw RideException(_messageForRideError(e));
+    }
+  }
 }

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../ride/models/ride_models.dart';
+import 'data/bookmarks_repository.dart';
 import 'data/campus_locations_repository.dart';
 
 /// Also doubles as the pickup-location picker (ConfirmRideScreen's "Current Location" row is
@@ -25,10 +26,32 @@ class _SelectDestinationScreenState
     extends ConsumerState<SelectDestinationScreen> {
   final _searchController = TextEditingController();
   String _filter = 'All';
-  final _favorites = <String>{};
+  final _pendingBookmarkToggles = <String>{};
 
   static const _filters = ['All', 'Buildings', 'Gates', 'Facilities'];
   static const _facilityTypes = {'PARKING', 'MEDICAL', 'DINING', 'EV_STOP'};
+
+  Future<void> _toggleBookmark(String campusLocationId, bool isCurrentlyFavorite) async {
+    if (_pendingBookmarkToggles.contains(campusLocationId)) return;
+    setState(() => _pendingBookmarkToggles.add(campusLocationId));
+    final repository = ref.read(bookmarksRepositoryProvider);
+    try {
+      if (isCurrentlyFavorite) {
+        await repository.remove(campusLocationId);
+      } else {
+        await repository.add(campusLocationId);
+      }
+      ref.invalidate(bookmarkedLocationIdsProvider);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Could not update favorite. Try again.')));
+      }
+    } finally {
+      if (mounted) setState(() => _pendingBookmarkToggles.remove(campusLocationId));
+    }
+  }
 
   @override
   void dispose() {
@@ -55,6 +78,9 @@ class _SelectDestinationScreenState
   @override
   Widget build(BuildContext context) {
     final locationsAsync = ref.watch(campusLocationsProvider);
+    // Defaults to empty while loading/on error - the star just starts unfilled rather than
+    // blocking the whole picker on a secondary, non-critical data source.
+    final bookmarkedIds = ref.watch(bookmarkedLocationIdsProvider).value ?? const <String>{};
 
     return Scaffold(
       appBar: AppBar(title: Text(widget.isPickupMode ? 'Select Pickup Location' : 'Select Destination')),
@@ -157,7 +183,7 @@ class _SelectDestinationScreenState
                       );
                     }
                     final loc = filtered[index];
-                    final isFavorite = _favorites.contains(loc.id);
+                    final isFavorite = bookmarkedIds.contains(loc.id);
                     return ListTile(
                       leading: Container(
                         width: 42,
@@ -182,11 +208,7 @@ class _SelectDestinationScreenState
                               ? AppColors.ratingGold
                               : AppColors.textSecondary,
                         ),
-                        onPressed: () => setState(() {
-                          isFavorite
-                              ? _favorites.remove(loc.id)
-                              : _favorites.add(loc.id);
-                        }),
+                        onPressed: () => _toggleBookmark(loc.id, isFavorite),
                       ),
                       onTap: () => widget.isPickupMode
                           ? context.pop(loc)

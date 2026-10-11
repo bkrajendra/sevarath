@@ -3,12 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
+import 'data/rides_repository.dart';
 import 'providers/ride_provider.dart';
 
-/// No backend rating endpoint exists yet (apps/api has no ride-rating table/route at all -
-/// see docs/open-items.md). This screen still collects a real rating/comment locally (useful
-/// UI to have ready), but Submit is honest about not persisting anywhere yet rather than
-/// faking a successful save.
+/// Wired to POST /rides/:id/rating (Phase 10.3, docs/plan.md §5) - rating and feedback are one
+/// combined submission, not two separate mechanisms: the tag chips below are folded into the
+/// submitted comment text, there's no separate tags column on the backend.
 class RateRideScreen extends ConsumerStatefulWidget {
   const RateRideScreen({super.key});
 
@@ -17,12 +17,42 @@ class RateRideScreen extends ConsumerStatefulWidget {
 }
 
 class _RateRideScreenState extends ConsumerState<RateRideScreen> {
+  final _ridesRepository = RidesRepository();
   int _rating = 5;
   final _tags = <String>{};
   final _commentController = TextEditingController();
+  bool _submitting = false;
 
   static const _allTags = ['Punctual', 'Safe', 'Courteous', 'Clean', 'Comfortable'];
   static const _ratingLabels = {1: 'Poor', 2: 'Fair', 3: 'Good', 4: 'Very Good', 5: 'Excellent'};
+
+  String? get _combinedComment {
+    final tagsText = _tags.isEmpty ? '' : _tags.join(', ');
+    final freeText = _commentController.text.trim();
+    final parts = [if (tagsText.isNotEmpty) tagsText, if (freeText.isNotEmpty) freeText];
+    return parts.isEmpty ? null : parts.join(' — ');
+  }
+
+  Future<void> _submit() async {
+    final rideId = ref.read(rideControllerProvider).ride?.id;
+    if (rideId == null) return;
+    setState(() => _submitting = true);
+    try {
+      await _ridesRepository.rateRide(rideId, rating: _rating, comment: _combinedComment);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Thanks for your feedback!')),
+      );
+    } on RideException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+    if (!mounted) return;
+    ref.read(rideControllerProvider.notifier).clear();
+    context.go('/home');
+  }
 
   @override
   void dispose() {
@@ -114,14 +144,14 @@ class _RateRideScreenState extends ConsumerState<RateRideScreen> {
           ),
           const SizedBox(height: 28),
           ElevatedButton(
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Thanks! Ride ratings are not saved yet - coming soon.')),
-              );
-              ref.read(rideControllerProvider.notifier).clear();
-              context.go('/home');
-            },
-            child: const Text('Submit'),
+            onPressed: _submitting ? null : _submit,
+            child: _submitting
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  )
+                : const Text('Submit'),
           ),
         ],
       ),

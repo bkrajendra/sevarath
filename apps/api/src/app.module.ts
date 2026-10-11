@@ -21,6 +21,7 @@ import { AdminModule } from './admin/admin.module';
 import { EventsModule } from './events/events.module';
 import { CommonModule } from './common/common.module';
 import { MetricsModule } from './metrics/metrics.module';
+import { BookmarksModule } from './bookmarks/bookmarks.module';
 
 @Module({
   imports: [
@@ -68,6 +69,7 @@ import { MetricsModule } from './metrics/metrics.module';
     AdminModule,
     EventsModule,
     CommonModule,
+    BookmarksModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

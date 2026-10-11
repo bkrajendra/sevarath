@@ -64,6 +64,13 @@
       "when": 1791715404540,
       "tag": "0008_first_sentry",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791716146627,
+      "tag": "0009_whole_mastermind",
+      "breakpoints": true
     }
   ]
 }

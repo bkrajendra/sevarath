@@ -271,14 +271,15 @@ Designed via the superpowers brainstorming process (mixed bounded/architectural 
 
 **Deliverable:** both Android apps receive and act on a real push while backgrounded/killed, including a driver learning about a new ride offer without the app being open.
 
-### 10.3 - Ride rating + feedback + location bookmarks `[NOT STARTED]`
+### 10.3 - Ride rating + feedback + location bookmarks `[DONE, 2026-10-11 - not yet deployed/verified live]`
 
-* [ ] `ride_ratings` table: `rideId` (unique FK, one rating per ride), `userId`, `rating` (smallint 1-5, CHECK constraint), `comment` (text, nullable - rating and feedback combined into one submission, not a separate mechanism). `POST /rides/:id/rating` (rider-only, ride must belong to them and be `COMPLETED`, 409 on duplicate).
-* [ ] `location_bookmarks` table: `userId` + `campusLocationId` FK (favoriting an existing `campus_locations` entry - not an arbitrary custom pin). `GET/POST/DELETE /users/me/bookmarks`.
-* [ ] Wire the rider app's existing Rate Ride screen (UI already exists, currently discards the rating locally) to the new endpoint.
-* [ ] Star/favorite affordance on the destination/pickup picker's campus-location rows, pulling from the bookmarks endpoint.
+* [x] `ride_ratings` table: `rideId` (unique FK, one rating per ride), `userId`, `rating` (smallint 1-5, CHECK constraint - hand-added to migration `0009`, drizzle-kit's generator doesn't emit CREATE-time CHECK DDL for this version), `comment` (text, nullable - rating and feedback combined into one submission, not a separate mechanism). `POST /rides/:id/rating` (`RidesService#rate` - rider-only, stricter than the existing `assertCanView`, ride must belong to them and be `COMPLETED`, 409 on duplicate via the DB's own unique index, not a pre-check).
+* [x] `location_bookmarks` table: `userId` + `campusLocationId` FK, unique per pair (favoriting an existing `campus_locations` entry - not an arbitrary custom pin). New `BookmarksModule`/`BookmarksController`/`LocationBookmarksService` - `GET/POST/DELETE /users/me/bookmarks[/:campusLocationId]`.
+* [x] Wired the rider app's existing Rate Ride screen (UI already existed, previously discarded the rating locally) to the new endpoint - the screen's existing tag chips are folded into the submitted `comment` text client-side rather than added as a new backend column.
+* [x] The destination/pickup picker's star/favorite affordance **already existed as local-only UI** (an unpersisted `Set<String>` in `select_destination_screen.dart`) - replaced with a real `bookmarkedLocationIdsProvider` (`bookmarks_repository.dart`) backed by the new endpoint, with optimistic per-row pending state on toggle.
 
 **Manual steps:** none.
+**Known gap:** no integration tests added for the rating/bookmark endpoints (unlike 10.1's password-reset tests) - build/typecheck only; lower-risk, simpler CRUD than the hashing/security-sensitive reset flow.
 **Deliverable:** a rider can rate+comment on a completed ride for real, and favorite frequently-used campus locations for faster pickup/destination selection.
 
 ### 10.4 - Admin dashboard `/ws` subscription (replacing polling) `[DONE, 2026-10-11 - not yet deployed/verified live]`

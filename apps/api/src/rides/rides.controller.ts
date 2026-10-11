@@ -22,7 +22,10 @@ import { IdempotencyInterceptor } from '../common/interceptors/idempotency.inter
 import { RidesService } from './rides.service';
 import { CreateRideDto } from './dto/create-ride.dto';
 import { CancelRideDto } from './dto/cancel-ride.dto';
+import { RateRideDto } from './dto/rate-ride.dto';
+import { RideRatingResponseDto } from './dto/ride-rating-response.dto';
 import { RideResponseDto, type RideDriverSummaryDto } from './dto/ride-response.dto';
+import type { RideRating } from '../db/schema';
 
 export type RideResponse = Ride & {
   driver: RideDriverSummaryDto | null;
@@ -114,6 +117,17 @@ export class RidesController {
   ): Promise<RideResponse> {
     const driver = await this.driversService.findByUserId(currentUser.userId);
     return this.enrich(await this.ridesService.complete(id, driver.id));
+  }
+
+  @Post(':id/rating')
+  @Roles('USER')
+  @ApiCreatedResponse({ type: RideRatingResponseDto })
+  async rate(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() currentUser: RequestUser,
+    @Body() dto: RateRideDto,
+  ): Promise<RideRating> {
+    return this.ridesService.rate(id, currentUser, dto.rating, dto.comment);
   }
 
   /**

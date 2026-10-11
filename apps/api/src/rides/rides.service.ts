@@ -9,7 +9,7 @@ import {
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { and, desc, eq, notInArray } from 'drizzle-orm';
 import { DRIZZLE, DrizzleDb } from '../db/drizzle.module';
-import { drivers, rideEvents, rides, type Ride } from '../db/schema';
+import { drivers, rideEvents, rideRatings, rides, type Ride, type RideRating } from '../db/schema';
 import { OutboxService } from '../events/outbox/outbox.service';
 import { MetricsService } from '../metrics/metrics.service';
 import type { RequestUser } from '../auth/types/jwt-payload.interface';
@@ -142,6 +142,44 @@ export class RidesService {
 
   async findHistoryForUser(userId: string): Promise<Ride[]> {
     return this.db.select().from(rides).where(eq(rides.userId, userId)).orderBy(desc(rides.requestedAt));
+  }
+
+  /**
+   * Rider-only (docs/plan.md §5/10.3) - deliberately stricter than `assertCanView` (no
+   * driver/admin rating path), and only from `COMPLETED`: a 1-5 rating + optional comment is one
+   * combined submission, not two separate mechanisms. 409s on a second attempt via the DB's own
+   * unique index on `ride_ratings.ride_id`, not a pre-check (avoids a race between the check and
+   * the insert).
+   */
+  async rate(id: string, requester: RequestUser, rating: number, comment?: string): Promise<RideRating> {
+    const ride = await this.getRideOrThrow(id);
+    if (ride.userId !== requester.userId) {
+      throw new ForbiddenException('You are not the rider for this ride');
+    }
+    if (ride.status !== 'COMPLETED') {
+      throw new BadRequestException({
+        code: 'RIDE_NOT_COMPLETED',
+        message: 'Only a completed ride can be rated',
+      });
+    }
+
+    try {
+      const [row] = await this.db
+        .insert(rideRatings)
+        .values({ rideId: id, userId: requester.userId, rating, comment })
+        .returning();
+      return row;
+    } catch (error) {
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        'code' in error &&
+        (error as { code?: unknown }).code === '23505'
+      ) {
+        throw new ConflictException('This ride has already been rated');
+      }
+      throw error;
+    }
   }
 
   /**
