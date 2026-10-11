@@ -26,30 +26,18 @@ class _SelectDestinationScreenState
     extends ConsumerState<SelectDestinationScreen> {
   final _searchController = TextEditingController();
   String _filter = 'All';
-  final _pendingBookmarkToggles = <String>{};
 
   static const _filters = ['All', 'Buildings', 'Gates', 'Facilities'];
   static const _facilityTypes = {'PARKING', 'MEDICAL', 'DINING', 'EV_STOP'};
 
-  Future<void> _toggleBookmark(String campusLocationId, bool isCurrentlyFavorite) async {
-    if (_pendingBookmarkToggles.contains(campusLocationId)) return;
-    setState(() => _pendingBookmarkToggles.add(campusLocationId));
-    final repository = ref.read(bookmarksRepositoryProvider);
-    try {
-      if (isCurrentlyFavorite) {
-        await repository.remove(campusLocationId);
-      } else {
-        await repository.add(campusLocationId);
-      }
-      ref.invalidate(bookmarkedLocationIdsProvider);
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Could not update favorite. Try again.')));
-      }
-    } finally {
-      if (mounted) setState(() => _pendingBookmarkToggles.remove(campusLocationId));
+  Future<void> _toggleBookmark(String campusLocationId) async {
+    // BookmarksController applies this optimistically and reverts on failure - no local
+    // pending-state tracking needed here (see its own doc comment for why).
+    final success = await ref.read(bookmarksControllerProvider.notifier).toggle(campusLocationId);
+    if (!success && mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Could not update favorite. Try again.')));
     }
   }
 
@@ -80,7 +68,7 @@ class _SelectDestinationScreenState
     final locationsAsync = ref.watch(campusLocationsProvider);
     // Defaults to empty while loading/on error - the star just starts unfilled rather than
     // blocking the whole picker on a secondary, non-critical data source.
-    final bookmarkedIds = ref.watch(bookmarkedLocationIdsProvider).value ?? const <String>{};
+    final bookmarkedIds = ref.watch(bookmarksControllerProvider).value ?? const <String>{};
 
     return Scaffold(
       appBar: AppBar(title: Text(widget.isPickupMode ? 'Select Pickup Location' : 'Select Destination')),
@@ -208,7 +196,7 @@ class _SelectDestinationScreenState
                               ? AppColors.ratingGold
                               : AppColors.textSecondary,
                         ),
-                        onPressed: () => _toggleBookmark(loc.id, isFavorite),
+                        onPressed: () => _toggleBookmark(loc.id),
                       ),
                       onTap: () => widget.isPickupMode
                           ? context.pop(loc)

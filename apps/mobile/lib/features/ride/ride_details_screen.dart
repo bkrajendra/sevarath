@@ -156,7 +156,7 @@ class _RideDetailsBody extends StatelessWidget {
             _ActionTile(
               icon: Icons.star_outline_rounded,
               label: 'Rate this ride',
-              onTap: () => context.push('/rate-ride'),
+              onTap: () => context.push('/rate-ride', extra: ride),
             ),
           _ActionTile(icon: Icons.flag_outlined, label: 'Report an issue', onTap: () {}),
           _ActionTile(icon: Icons.help_outline_rounded, label: 'Ride help', onTap: () {}),

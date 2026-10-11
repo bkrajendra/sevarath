@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/router/auth_router_notifier.dart';
+import '../../destination/data/bookmarks_repository.dart';
 import '../../notifications/push_notification_service.dart';
 import '../data/auth_repository.dart';
 import '../models/user_profile.dart';
@@ -65,6 +66,15 @@ class AuthController extends Notifier<AuthState> {
 
   AuthRepository get _repository => ref.read(authRepositoryProvider);
 
+  /// Drops cached per-user data on any account switch (login/register/logout) - found in live
+  /// testing (2026-10-12) that `bookmarksControllerProvider` kept the *previous* user's
+  /// favorites visible after switching accounts on the same device/session until some unrelated
+  /// mutation happened to invalidate it. Riverpod providers outlive a single login session by
+  /// default; nothing was ever telling this one a different user had signed in.
+  void _resetUserScopedCaches() {
+    ref.invalidate(bookmarksControllerProvider);
+  }
+
   Future<void> _bootstrap() async {
     final hasSession = await _repository.hasValidSession();
     state = AuthState(
@@ -93,6 +103,7 @@ class AuthController extends Notifier<AuthState> {
         password: password,
       );
       state = const AuthState(status: AuthStatus.authenticated);
+      _resetUserScopedCaches();
       await _loadUser();
       authRouterNotifier.refresh();
       unawaited(pushNotificationService.registerDeviceToken());
@@ -113,6 +124,7 @@ class AuthController extends Notifier<AuthState> {
     try {
       await _repository.login(identifier: identifier, password: password);
       state = const AuthState(status: AuthStatus.authenticated);
+      _resetUserScopedCaches();
       await _loadUser();
       authRouterNotifier.refresh();
       unawaited(pushNotificationService.registerDeviceToken());
@@ -140,6 +152,7 @@ class AuthController extends Notifier<AuthState> {
         );
       }
       state = const AuthState(status: AuthStatus.authenticated);
+      _resetUserScopedCaches();
       await _loadUser();
       authRouterNotifier.refresh();
       unawaited(pushNotificationService.registerDeviceToken());
@@ -153,6 +166,7 @@ class AuthController extends Notifier<AuthState> {
     try {
       await _repository.completeGoogleSignup(firebaseIdToken: firebaseIdToken, mobile: mobile);
       state = const AuthState(status: AuthStatus.authenticated);
+      _resetUserScopedCaches();
       await _loadUser();
       authRouterNotifier.refresh();
       unawaited(pushNotificationService.registerDeviceToken());
@@ -167,6 +181,7 @@ class AuthController extends Notifier<AuthState> {
     await pushNotificationService.unregisterDeviceToken();
     await _repository.logout();
     state = const AuthState(status: AuthStatus.unauthenticated);
+    _resetUserScopedCaches();
     authRouterNotifier.refresh();
   }
 

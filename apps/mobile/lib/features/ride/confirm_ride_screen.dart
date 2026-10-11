@@ -1,15 +1,24 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
 
+import '../../core/config/campus_config.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../shared/widgets/campus_map_preview.dart';
 import '../destination/data/campus_locations_repository.dart';
 import 'models/ride_models.dart';
 import 'providers/ride_provider.dart';
+
+/// `Geolocator.getCurrentPosition()` has no default timeout - on a device/emulator with no real
+/// GPS fix (found in live testing, 2026-10-12: a location-mocking app was closed mid-session,
+/// leaving nothing for the OS to return) it can hang indefinitely, which looked like the booking
+/// screen being stuck at a loading spinner forever rather than a location failure.
+const _locationResolutionTimeout = Duration(seconds: 15);
 
 /// A stop within this distance of the device's GPS fix is shown/sent as "pickup near" that stop
 /// instead of a bare "Current Location" - purely a display/pickupLocationName nicety, the raw
@@ -71,9 +80,33 @@ class _ConfirmRideScreenState extends ConsumerState<ConfirmRideScreen> {
         });
         return;
       }
-      final position = await Geolocator.getCurrentPosition();
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: LocationSettings(timeLimit: _locationResolutionTimeout),
+      );
+
+      final distanceFromCampusMeters = Geolocator.distanceBetween(
+        position.latitude,
+        position.longitude,
+        CampusConfig.center.latitude,
+        CampusConfig.center.longitude,
+      );
+      if (distanceFromCampusMeters > CampusConfig.serviceRadiusMeters) {
+        setState(() {
+          _locationError =
+              "You're too far from campus to request a ride. SevaRath only operates "
+              'within the campus area.';
+          _resolvingLocation = false;
+        });
+        return;
+      }
+
       setState(() {
         _position = position;
+        _resolvingLocation = false;
+      });
+    } on TimeoutException {
+      setState(() {
+        _locationError = 'Could not get a GPS fix in time. Check that location services are on and try again.';
         _resolvingLocation = false;
       });
     } catch (_) {

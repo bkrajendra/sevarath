@@ -9,7 +9,9 @@ import '../../features/auth/providers/auth_provider.dart';
 import '../../features/auth/register_screen.dart';
 import '../../features/splash/splash_screen.dart';
 import '../../features/home/home_screen.dart';
+import '../../features/destination/favorite_locations_screen.dart';
 import '../../features/destination/select_destination_screen.dart';
+import '../../features/ride/models/ride.dart';
 import '../../features/ride/models/ride_models.dart';
 import '../../features/ride/confirm_ride_screen.dart';
 import '../../features/ride/finding_vehicle_screen.dart';
@@ -164,12 +166,17 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: '/rate-ride',
       parentNavigatorKey: rootNavigatorKey,
-      builder: (context, state) => const RateRideScreen(),
+      builder: (context, state) => RateRideScreen(ride: state.extra as Ride),
     ),
     GoRoute(
       path: '/about',
       parentNavigatorKey: rootNavigatorKey,
       builder: (context, state) => const AboutScreen(),
+    ),
+    GoRoute(
+      path: '/favorites',
+      parentNavigatorKey: rootNavigatorKey,
+      builder: (context, state) => const FavoriteLocationsScreen(),
     ),
   ],
 );

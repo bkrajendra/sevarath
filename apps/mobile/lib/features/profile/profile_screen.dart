@@ -55,9 +55,10 @@ class ProfileScreen extends ConsumerWidget {
             // intercepts it first.
             onTap: () => StatefulNavigationShell.of(context).goBranch(1),
           ),
-          const _MenuTile(
+          _MenuTile(
             icon: Icons.favorite_border_rounded,
             label: 'Favourite Locations',
+            onTap: () => context.push('/favorites'),
           ),
           const _MenuTile(
             icon: Icons.notifications_none_rounded,

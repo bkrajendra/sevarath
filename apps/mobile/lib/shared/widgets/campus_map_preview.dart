@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
 
+import '../../core/config/campus_config.dart';
 import '../../core/theme/app_colors.dart';
 
 /// Shared map surface for ride screens (Confirm Ride, Driver En Route, On The
@@ -15,9 +16,7 @@ class CampusMapPreview extends StatefulWidget {
     this.destination,
     this.vehiclePosition,
     this.routePolyline,
-    // Diamond Hall Shanti Van, Abu Road - the actual campus this app is built
-    // for (db/seed.ts's own named-location entry for this exact building).
-    this.center = const LatLng(24.5313075, 72.7947805),
+    this.center = CampusConfig.center,
     this.zoom = 15.5,
   });
 
