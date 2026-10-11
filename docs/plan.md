@@ -239,3 +239,79 @@ The backend is done across every phase (§0/§2 above), and **both** Flutter fla
 12. **Housekeeping**: the e2e test-isolation fix (`maxWorkers: 1`, #30/#37) is a stopgap, not the long-term answer (#30's own suggestion: per-worker DB/Redis isolation) if the suite keeps growing with more tests.
 13. **Mobile release bookkeeping**: the previously-published non-functional APKs (`Pre-Release-v0.0.1`, `v1.0.0`, `v1.1.0`, built before the `INTERNET`/location-permission fix #63) are still live on GitHub Releases - worth marking or deleting them now that a working build has replaced them.
 14. **Two human-review items from Phase 9**, already resolved by the product owner, kept here for traceability only: the reuse-detection severity tradeoff (#55, confirmed as-is) and the refresh-token migration's one-time fleet-wide re-login impact (#56, confirmed no special timing needed).
+
+## 5. Phase 10 - Auth hardening, push, ratings/bookmarks, admin realtime (planned 2026-10-11)
+
+Designed via the superpowers brainstorming process (mixed bounded/architectural batch), reviewed against the actual schema/gateway/mobile code before being written down here, and approved by the user with one correction (10.5's mobile-handling redesign, see below). Per the user's own new standing instruction, **this section is written before implementation starts, and gets checked off/updated as each sub-phase lands** - not written retroactively.
+
+### 10.1 - Password reset (email-based) `[NOT STARTED]`
+
+* [ ] New `password_reset_codes` table: `userId` FK, SHA-256-hashed 6-digit code (lookup hash, not bcrypt - same reasoning as `refresh_tokens.token_hash`), 10-minute expiry, single-use.
+* [ ] `POST /auth/password-reset/request {identifier}` - always returns a generic "if an account with an email exists, a code was sent" response (no account-enumeration leak, matches `loginWithPassword`'s existing posture); emails the code via the already-wired Resend integration (`mail.service.ts`) only when the matched user actually has an email on file.
+* [ ] `POST /auth/password-reset/confirm {identifier, code, newPassword}` - validates the code, sets a new `passwordHash`, and revokes every existing refresh token for that user (forces re-login everywhere, standard post-reset hygiene, same `revokeAllForUser` helper `refresh()`'s reuse-detection path already uses).
+* [ ] "Forgot password?" entry point on the rider app's password-login screen only (drivers stay admin-managed per 10.6) - enter identifier → code+new-password screen → success → back to login.
+
+**Manual steps:** none - Resend is already live in production (used today for driver-credential emails).
+**Deliverable:** a rider with an email on file can recover a forgotten password without contacting an admin.
+
+### 10.2 - Firebase push: receive + deep-link (Android), plus a driver ride-offer push `[NOT STARTED]`
+
+* [ ] Add `firebase_core`/`firebase_messaging`/`flutter_local_notifications` to `apps/mobile`; initialize Firebase in both `main_user.dart`/`main_driver.dart` entry points.
+* [ ] Register the device token on login via the already-existing `POST /notifications/device-tokens` endpoint (Phase 7 backend; no client ever called it until now) and unregister on logout.
+* [ ] Foreground handler shows a local notification (FCM alone doesn't surface a system notification while foregrounded on Android); a tap on any notification (foreground, background, or killed) navigates via the existing `go_router` instance based on a `type` field in the push payload.
+* [ ] New backend event type, `RideOfferCreated`, added to the existing BullMQ `notification-events` consumer (Phase 7) - fired when `dispatch.service.ts` creates a new `ride_offers` row, so a driver with the app killed/backgrounded still learns about an incoming ride (today this is WS/polling-only and silently misses a killed app entirely).
+* [ ] Android 13+ runtime `POST_NOTIFICATIONS` permission request.
+
+**Scope:** Android only, both flavors. iOS is explicitly out of scope this pass - there is no iOS flavor split yet (Phase 3's known gap), so there's nothing to wire push into there.
+
+**Manual steps:**
+* [x] Firebase service-account values (project `bksevarath`) applied to the live k8s secret - **done by user, 2026-10-11**.
+* [x] Two Android apps registered in the Firebase console (`com.rajendrakhope.sevarath`, `com.rajendrakhope.sevarath.driver`) - **done by user, 2026-10-11**.
+* [x] `google-services.json` (contains both app entries) placed at `apps/mobile/android/app/google-services.json` - **done by user, 2026-10-11**, verified to contain both client entries, now gitignored alongside the rest of this app's signing/config material.
+
+**Deliverable:** both Android apps receive and act on a real push while backgrounded/killed, including a driver learning about a new ride offer without the app being open.
+
+### 10.3 - Ride rating + feedback + location bookmarks `[NOT STARTED]`
+
+* [ ] `ride_ratings` table: `rideId` (unique FK, one rating per ride), `userId`, `rating` (smallint 1-5, CHECK constraint), `comment` (text, nullable - rating and feedback combined into one submission, not a separate mechanism). `POST /rides/:id/rating` (rider-only, ride must belong to them and be `COMPLETED`, 409 on duplicate).
+* [ ] `location_bookmarks` table: `userId` + `campusLocationId` FK (favoriting an existing `campus_locations` entry - not an arbitrary custom pin). `GET/POST/DELETE /users/me/bookmarks`.
+* [ ] Wire the rider app's existing Rate Ride screen (UI already exists, currently discards the rating locally) to the new endpoint.
+* [ ] Star/favorite affordance on the destination/pickup picker's campus-location rows, pulling from the bookmarks endpoint.
+
+**Manual steps:** none.
+**Deliverable:** a rider can rate+comment on a completed ride for real, and favorite frequently-used campus locations for faster pickup/destination selection.
+
+### 10.4 - Admin dashboard `/ws` subscription (replacing polling) `[NOT STARTED]`
+
+* [ ] `LocationGateway.handleConnection` gains an `ADMIN`/`OPERATOR` branch that joins a new `adminRoom()`.
+* [ ] Every driver-location push also fans out to `adminRoom()` (today only the specific rider on that ride gets it), plus a new lightweight `AdminDashboardChanged` event on anything that moves the summary counts (driver status/availability change, vehicle status change, ride assigned/completed/cancelled).
+* [ ] Admin React app: add `socket.io-client`; new `useAdminSocket()` hook (mirrors the Flutter `ride_socket_service.dart` pattern) patches the live-map query cache on `DriverLocationUpdated` and invalidates the summary query on `AdminDashboardChanged`.
+* [ ] The existing 10s polling (`useAdminDashboard.ts`) stays as a fallback if the socket is ever disconnected, not replaced outright - same resilience posture the Flutter apps already use for their own sockets.
+
+**Scope:** Dashboard page only (live map + summary counts) - Drivers/Vehicles/Rides list pages keep polling, matching exactly what was asked (#42).
+**Manual steps:** none - deployed the same way as everything else (`kubectl rollout restart`).
+**Deliverable:** the admin Dashboard reflects driver movement and summary-count changes in near real time instead of up to 10s stale.
+
+### 10.5 - Google Sign-In (rider app only) `[NOT STARTED]`
+
+The backend is already mostly there: `POST /auth/login` already exchanges *any* Firebase ID token - Phone-OTP or Google - for app tokens (`AuthService#loginWithFirebaseToken`, wired since Phase 1, never activated by a client). This activates it rather than building new.
+
+**Design, as corrected by the user (2026-10-11) - `users.mobile` stays `NOT NULL`/unique, no schema change; nothing is created without a mobile number:**
+
+1. Rider taps "Continue with Google" → `google_sign_in` → Firebase Auth's `signInWithCredential` → Firebase ID token → `POST /auth/login` (existing endpoint, existing `FirebaseAuthGuard`), with no `mobile` in the body yet.
+2. Backend: if an existing user matches (by `firebaseUid`, or by mobile/email for a pre-provisioned DRIVER/ADMIN/OPERATOR account), log in normally - unchanged. If no user matches **and no mobile can be resolved** (Google sign-in never supplies `decoded.phone_number`), the account is **not created**. Instead `POST /auth/login` returns a distinct `{ requiresMobile: true, name?, email? }` body instead of a `TokenResponseDto` (same endpoint, no new route).
+3. Flutter shows a "confirm your details" screen (name/email pre-filled from the Google profile, mobile mandatory, validated) and calls `POST /auth/login` **again** with the *same* Firebase ID token plus `{ mobile }` in the body (the client already holds the Firebase token from step 1 - no need to re-run Google sign-in). `LoginDto` gains an optional `mobile` field (same `+911234567890`-style validation `RegisterDto.mobile` already uses).
+4. Backend: this time mobile is present - creates the user (409 on a mobile collision, same as `register()`), issues tokens normally. **No `PENDING` status, no `complete-profile` endpoint, no nullable-mobile migration** - a user row simply doesn't exist until all required fields are known, matching how `register()` already behaves for password sign-up.
+5. Edge case: if the user stalls on the mobile-entry screen long enough for the Firebase ID token to expire (~1hr), the retry call 401s - client restarts Google sign-in rather than trying to reuse a stale token.
+
+**Manual steps:**
+* [x] Google sign-in provider enabled in Firebase Console → Authentication → Sign-in method - **done by user, 2026-10-11**.
+* [ ] Register the rider app's Android SHA-1/SHA-256 certificate fingerprint against its Firebase Android app entry (`com.rajendrakhope.sevarath`) - **required specifically for Google Sign-In** (push notifications don't need this) and not yet done. Can be generated from `docs/secrets/sevarath-upload-keystore.jks` with `keytool -list -v -keystore ... -alias <alias>` (and separately for the debug keystore, for local testing) - only the fingerprint is printed, not the password. Flag this back to Claude when ready, or ask for the exact command to run yourself.
+* [x] `google-services.json` placed (shared with 10.2) - **done**.
+* [ ] iOS Google Sign-In config (`GoogleService-Info.plist`, URL scheme) - deferred with the broader iOS-flavors gap.
+
+**Deliverable:** a rider can sign up/in with Google; a brand-new Google identity with no mobile on file is forced through a mandatory "add your mobile" step before any account is created, never leaving a half-created row behind.
+
+### 10.6 - Driver login - confirmed no-op `[N/A - NO CHANGE]`
+
+Drivers keep mobile+password login on the driver-flavor app; accounts stay admin-console-provisioned only (Phase 2's `/drivers/provision`). Google Sign-In (10.5) is rider-app-only. Recorded explicitly so this reads as a deliberate scope boundary, not an oversight.

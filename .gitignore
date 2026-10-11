@@ -9,3 +9,9 @@ coverage/
 .turbo/
 docs/secrets/
 dump.rdb
+
+# Firebase client config - project identity + API keys scoped to our own Android/iOS apps, not
+# secret in the bearer-token sense, but kept local like the rest of docs/secrets/ rather than
+# committed. The admin-SDK service account (actual server credential) lives in docs/secrets/.
+apps/mobile/android/app/google-services.json
+apps/mobile/ios/Runner/GoogleService-Info.plist
