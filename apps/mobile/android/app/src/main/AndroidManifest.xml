@@ -8,6 +8,10 @@
          these - also missing until now, same release-only gap as above. -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <!-- Android 13+ (API 33+) requires this manifest declaration before a runtime notification
+         permission prompt (FirebaseMessaging.instance.requestPermission(), Phase 10.2,
+         docs/plan.md §5) can show at all. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <application
         android:label="@string/app_name"
         android:name="${applicationName}"
@@ -40,6 +44,13 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <!-- The channel a backgrounded/killed app's FCM-auto-displayed notification uses
+             (Phase 10.2, docs/plan.md §5) - must match the channel id created in Dart
+             (push_notification_service.dart's AndroidNotificationChannel), so a background
+             notification and a foreground one share the same channel/importance. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="ride_updates" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

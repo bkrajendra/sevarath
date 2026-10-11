@@ -13,6 +13,7 @@ import { RegisterDto } from './dto/register.dto';
 import { PasswordLoginDto } from './dto/password-login.dto';
 import { PasswordResetRequestDto } from './dto/password-reset-request.dto';
 import { PasswordResetConfirmDto } from './dto/password-reset-confirm.dto';
+import { RequiresMobileResponseDto } from './dto/requires-mobile-response.dto';
 
 /**
  * Stricter-than-global rate limit for this controller's unauthenticated,
@@ -33,16 +34,23 @@ export class AuthController {
   /**
    * Exchanges a Firebase ID token (obtained client-side after Phone-OTP or Google
    * Sign-In - see architecture.md §9.4) for this app's own access/refresh JWT pair.
+   *
+   * May return `RequiresMobileResponseDto` instead (docs/plan.md §5/10.5) when a brand-new
+   * Google identity has no mobile number resolvable yet - the client collects one and calls
+   * this again with the same `idToken` plus `mobile` in the body.
    */
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @UseGuards(FirebaseAuthGuard)
   @Throttle(AUTH_BRUTE_FORCE_THROTTLE)
   @ApiBody({ type: LoginDto })
-  @ApiOkResponse({ type: TokenResponseDto })
-  async login(@Req() req: Request): Promise<TokenResponseDto> {
+  @ApiOkResponse({ type: TokenResponseDto, description: 'Or RequiresMobileResponseDto - see method doc comment.' })
+  async login(
+    @Req() req: Request,
+    @Body() dto: LoginDto,
+  ): Promise<TokenResponseDto | RequiresMobileResponseDto> {
     const decoded = req.user as admin.auth.DecodedIdToken;
-    return this.authService.loginWithFirebaseToken(decoded);
+    return this.authService.loginWithFirebaseToken(decoded, dto.mobile);
   }
 
   /** Self-hosted registration - mobile + email + password. No Firebase required. */

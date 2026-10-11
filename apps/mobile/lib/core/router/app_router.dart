@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/auth/complete_profile_screen.dart';
 import '../../features/auth/forgot_password_screen.dart';
 import '../../features/auth/login_screen.dart';
 import '../../features/auth/providers/auth_provider.dart';
@@ -38,7 +39,8 @@ final GoRouter appRouter = GoRouter(
     final goingToAuthScreen =
         state.matchedLocation == '/login' ||
         state.matchedLocation == '/register' ||
-        state.matchedLocation == '/forgot-password';
+        state.matchedLocation == '/forgot-password' ||
+        state.matchedLocation == '/complete-profile';
     final goingToSplash = state.matchedLocation == '/splash';
 
     if (isLoading) {
@@ -77,6 +79,18 @@ final GoRouter appRouter = GoRouter(
       path: '/forgot-password',
       parentNavigatorKey: rootNavigatorKey,
       builder: (context, state) => const ForgotPasswordScreen(),
+    ),
+    GoRoute(
+      path: '/complete-profile',
+      parentNavigatorKey: rootNavigatorKey,
+      builder: (context, state) {
+        final extra = state.extra as Map<String, String?>;
+        return CompleteProfileScreen(
+          firebaseIdToken: extra['firebaseIdToken']!,
+          suggestedName: extra['suggestedName'],
+          suggestedEmail: extra['suggestedEmail'],
+        );
+      },
     ),
 
     StatefulShellRoute.indexedStack(

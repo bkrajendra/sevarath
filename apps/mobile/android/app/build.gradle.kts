@@ -5,6 +5,9 @@ plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+    // google-services.json is gitignored (see root .gitignore) - this build only succeeds once
+    // it's present locally (Phase 10.2/10.5, docs/plan.md §5).
+    id("com.google.gms.google-services")
 }
 
 // Release signing - loaded from android/key.properties (gitignored; written by CI from
@@ -25,6 +28,10 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        // flutter_local_notifications (Phase 10.2, docs/plan.md §5) requires this regardless of
+        // minSdk - its Android implementation uses java.time APIs the AGP toolchain validates
+        // against the desugared library, not against minSdk directly.
+        isCoreLibraryDesugaringEnabled = true
     }
 
     // AGP 8 disables resValue() by default - needed below for each flavor's app_name.
@@ -94,4 +101,9 @@ kotlin {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    // Paired with isCoreLibraryDesugaringEnabled above.
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }

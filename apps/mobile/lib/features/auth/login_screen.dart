@@ -19,6 +19,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _identifierController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _submitting = false;
+  bool _googleSubmitting = false;
 
   @override
   void dispose() {
@@ -39,6 +40,25 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     if (!mounted) return;
     setState(() => _submitting = false);
     if (success) context.go('/home');
+  }
+
+  Future<void> _submitGoogle() async {
+    setState(() => _googleSubmitting = true);
+    final result = await ref.read(authControllerProvider.notifier).loginWithGoogle();
+    if (!mounted) return;
+    setState(() => _googleSubmitting = false);
+    switch (result) {
+      case GoogleLoginSuccess():
+        context.go('/home');
+      case GoogleLoginRequiresMobile(:final firebaseIdToken, :final suggestedName, :final suggestedEmail):
+        context.push(
+          '/complete-profile',
+          extra: {'firebaseIdToken': firebaseIdToken, 'suggestedName': suggestedName, 'suggestedEmail': suggestedEmail},
+        );
+      case GoogleLoginFailed(:final message):
+        if (message == 'Sign-in cancelled.') return;
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    }
   }
 
   @override
@@ -103,6 +123,33 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           )
                         : const Text('Log In'),
                   ),
+                  // Google Sign-In is rider-app only (docs/plan.md §5/10.5/10.6) - drivers stay
+                  // mobile/password via the admin console.
+                  if (!FlavorConfig.isDriver) ...[
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        const Expanded(child: Divider()),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: Text('or', style: AppTextStyles.secondary),
+                        ),
+                        const Expanded(child: Divider()),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    OutlinedButton.icon(
+                      onPressed: _googleSubmitting ? null : _submitGoogle,
+                      icon: _googleSubmitting
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.g_mobiledata_rounded, size: 24),
+                      label: const Text('Continue with Google'),
+                    ),
+                  ],
                   // Password reset is rider-app UI only (docs/plan.md §5/10.1) - drivers rely on
                   // an Admin for credential issues, same as registration below.
                   if (!FlavorConfig.isDriver) ...[

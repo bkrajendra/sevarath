@@ -52,6 +52,16 @@ function generateResetCode(): string {
   return randomInt(0, 1_000_000).toString().padStart(6, '0');
 }
 
+/** Postgres unique-violation error code - same check `drivers.service.ts`/`vehicles.service.ts` use. */
+function isUniqueViolation(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { code?: unknown }).code === '23505'
+  );
+}
+
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
@@ -70,40 +80,58 @@ export class AuthService {
    * - USER accounts self-provision on first login.
    * - DRIVER/ADMIN/OPERATOR accounts must already exist (created by an Admin); login only
    *   links the Firebase UID to that pre-existing record. See specification.md §3.3.
+   * - Google Sign-In (docs/plan.md §5/10.5): Google never supplies a phone number, and
+   *   `users.mobile` stays NOT NULL/unique (corrected design, 2026-10-11 - no nullable-mobile
+   *   migration, no half-created rows). A brand-new identity with no mobile resolvable gets a
+   *   `{requiresMobile: true}` response instead of a token pair; the client collects a mobile
+   *   and calls this again with the *same* idToken plus `suppliedMobile`.
+   *
+   * SECURITY: the pre-provisioned-account lookup below matches only on Firebase-verified
+   * identifiers (`decoded.phone_number`/`decoded.email`), never on `suppliedMobile` - that field
+   * is client-typed, unverified input. Matching an existing account against it would let someone
+   * link a Google identity to a stranger's account just by typing their mobile number.
+   * `suppliedMobile` is only ever used to *create* a brand-new row, and the DB's own unique
+   * index on `users.mobile` (not a pre-check) catches a collision there as an ordinary 409,
+   * exactly like `register()`'s own duplicate-mobile case.
    */
-  async loginWithFirebaseToken(decoded: admin.auth.DecodedIdToken): Promise<TokenResponseDto> {
+  async loginWithFirebaseToken(
+    decoded: admin.auth.DecodedIdToken,
+    suppliedMobile?: string,
+  ): Promise<TokenResponseDto | { requiresMobile: true; name?: string; email?: string }> {
     const existingByUid = await this.usersService.findByFirebaseUid(decoded.uid);
     if (existingByUid) {
       return this.issueTokens(existingByUid);
     }
 
-    const mobile = decoded.phone_number;
     const email = decoded.email;
 
-    const preProvisioned = await this.usersService.findByMobileOrEmail(mobile, email);
+    const preProvisioned = await this.usersService.findByMobileOrEmail(decoded.phone_number, email);
     if (preProvisioned) {
       const linked = await this.usersService.linkFirebaseUid(preProvisioned.id, decoded.uid);
       return this.issueTokens(linked);
     }
 
+    const mobile = decoded.phone_number ?? suppliedMobile;
     if (!mobile) {
-      this.logger.warn(
-        `No user matched Firebase identity (uid=${decoded.uid}, email=${email ?? 'none'}, mobile=none) - rejecting login`,
-      );
-      throw new UnauthorizedException(
-        'No account found for this identity and no mobile number was provided to self-provision one',
-      );
+      return { requiresMobile: true, name: decoded.name, email };
     }
 
-    const created = await this.usersService.create({
-      name: decoded.name ?? mobile,
-      mobile,
-      email,
-      role: 'USER',
-      status: 'ACTIVE',
-      firebaseUid: decoded.uid,
-    });
-    return this.issueTokens(created);
+    try {
+      const created = await this.usersService.create({
+        name: decoded.name ?? mobile,
+        mobile,
+        email,
+        role: 'USER',
+        status: 'ACTIVE',
+        firebaseUid: decoded.uid,
+      });
+      return this.issueTokens(created);
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        throw new ConflictException('An account with this mobile number or email already exists');
+      }
+      throw error;
+    }
   }
 
   /**
