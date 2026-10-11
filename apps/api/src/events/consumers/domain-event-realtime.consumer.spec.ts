@@ -51,7 +51,7 @@ function makeDbMock(row: Ride | null) {
 }
 
 function makeGatewayMock() {
-  return { emitToUser: jest.fn(), emitToDriver: jest.fn() } as const;
+  return { emitToUser: jest.fn(), emitToDriver: jest.fn(), emitToAdmins: jest.fn() } as const;
 }
 
 describe('DomainEventRealtimeConsumer', () => {
