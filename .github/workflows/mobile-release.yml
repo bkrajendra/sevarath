@@ -48,11 +48,16 @@ jobs:
       # google-services.json is gitignored (not a bearer-token-style secret, but kept local like
       # the rest of docs/secrets/ - see .gitignore and docs/plan.md §5/10.2) - the
       # com.google.gms.google-services Gradle plugin (Phase 10.2/10.5) fails the build without
-      # it. Same base64-secret pattern as the keystore above.
+      # it. Stored as the raw JSON text (not base64, unlike the binary keystore above) - it's
+      # plain UTF-8 text, so there's no encoding step on the way in to go wrong. A base64 round
+      # trip through Windows PowerShell's pipe-to-native-exe (`[Convert]::ToBase64String(...) |
+      # gh secret set`) corrupted the value the first time this was set up (2026-10-11,
+      # "Malformed root json" from Gradle) - `gh secret set NAME --body-file
+      # google-services.json` sidesteps that entirely.
       - name: Set up Firebase config
         env:
-          GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
-        run: echo "$GOOGLE_SERVICES_JSON_BASE64" | base64 -d -i > android/app/google-services.json
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: echo "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
 
       # Two installable apps from one codebase (android/app/build.gradle.kts's productFlavors) -
       # build both so every release carries a rider and a driver APK. `user` keeps the
