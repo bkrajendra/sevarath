@@ -154,8 +154,8 @@ class _RideDetailsBody extends StatelessWidget {
           const Divider(height: 24),
           if (isCompleted)
             _ActionTile(
-              icon: Icons.star_outline_rounded,
-              label: 'Rate this ride',
+              icon: ride.rating != null ? Icons.star_rounded : Icons.star_outline_rounded,
+              label: ride.rating != null ? 'Your rating' : 'Rate this ride',
               onTap: () => context.push('/rate-ride', extra: ride),
             ),
           _ActionTile(icon: Icons.flag_outlined, label: 'Report an issue', onTap: () {}),

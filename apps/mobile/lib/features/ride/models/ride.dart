@@ -83,6 +83,20 @@ class RideDriverSummary {
   }
 }
 
+/// Mirrors RideRatingSummaryDto (ride-response.dto.ts) - present once the rider has rated this
+/// ride (Phase 10.3 follow-up, docs/plan.md §5), so the client can show it read-only instead of
+/// re-prompting (and knows not to call POST /rides/:id/rating again - it would 409 anyway).
+class RideRatingSummary {
+  const RideRatingSummary({required this.rating, required this.comment});
+
+  final int rating;
+  final String? comment;
+
+  factory RideRatingSummary.fromJson(Map<String, dynamic> json) {
+    return RideRatingSummary(rating: json['rating'] as int, comment: json['comment'] as String?);
+  }
+}
+
 /// Mirrors apps/api/src/rides/dto/ride-response.dto.ts's RideResponseDto (plus the
 /// driver/vehicleCode enrichment rides.controller.ts#enrich adds).
 class Ride {
@@ -101,6 +115,7 @@ class Ride {
     required this.driver,
     required this.vehicleCode,
     required this.vehicleRegistrationNumber,
+    required this.rating,
     required this.requestedAt,
     required this.acceptedAt,
     required this.driverArrivedAt,
@@ -123,6 +138,7 @@ class Ride {
   final RideDriverSummary? driver;
   final String? vehicleCode;
   final String? vehicleRegistrationNumber;
+  final RideRatingSummary? rating;
   final DateTime requestedAt;
   final DateTime? acceptedAt;
   final DateTime? driverArrivedAt;
@@ -151,6 +167,9 @@ class Ride {
           : null,
       vehicleCode: json['vehicleCode'] as String?,
       vehicleRegistrationNumber: json['vehicleRegistrationNumber'] as String?,
+      rating: json['rating'] != null
+          ? RideRatingSummary.fromJson(json['rating'] as Map<String, dynamic>)
+          : null,
       requestedAt: DateTime.parse(json['requestedAt'] as String),
       acceptedAt: _parseNullable(json['acceptedAt']),
       driverArrivedAt: _parseNullable(json['driverArrivedAt']),

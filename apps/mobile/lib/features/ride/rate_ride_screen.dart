@@ -53,6 +53,11 @@ class _RateRideScreenState extends ConsumerState<RateRideScreen> {
       if (ref.read(rideControllerProvider).ride?.id == widget.ride.id) {
         ref.read(rideControllerProvider.notifier).clear();
       }
+      // RideDetailsScreen's own ride (from rideByIdProvider) is now stale - still shows "Rate
+      // this ride" instead of "Your rating" / lacks the rating to show read-only (found in live
+      // testing, 2026-10-12: re-opening after submit showed the blank form again). Invalidating
+      // here makes it refetch as soon as we pop back to it.
+      ref.invalidate(rideByIdProvider(widget.ride.id));
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Thanks for your feedback!')),
       );
@@ -75,9 +80,10 @@ class _RateRideScreenState extends ConsumerState<RateRideScreen> {
   Widget build(BuildContext context) {
     final driver = widget.ride.driver;
     final vehicleCode = widget.ride.vehicleCode;
+    final existingRating = widget.ride.rating;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Rate Your Ride')),
+      appBar: AppBar(title: Text(existingRating != null ? 'Your Rating' : 'Rate Your Ride')),
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
@@ -99,73 +105,118 @@ class _RateRideScreenState extends ConsumerState<RateRideScreen> {
             ],
           ),
           const SizedBox(height: 28),
-          Center(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(5, (i) {
-                final starIndex = i + 1;
-                final filled = starIndex <= _rating;
-                return IconButton(
-                  // Respond on press, not release - instant visual feedback.
-                  onPressed: () => setState(() => _rating = starIndex),
-                  iconSize: 36,
-                  icon: Icon(
-                    filled ? Icons.star_rounded : Icons.star_border_rounded,
-                    color: AppColors.ratingGold,
-                  ),
-                );
-              }),
-            ),
-          ),
-          Center(
-            child: Text(_ratingLabels[_rating] ?? '', style: AppTextStyles.title),
-          ),
-          const SizedBox(height: 24),
-          Text("Tell us about your experience (optional)", style: AppTextStyles.secondary),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _commentController,
-            maxLength: 200,
-            maxLines: 3,
-            onChanged: (_) => setState(() {}),
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: _allTags.map((tag) {
-              final selected = _tags.contains(tag);
-              return FilterChip(
-                label: Text(tag),
-                selected: selected,
-                onSelected: (value) => setState(() {
-                  value ? _tags.add(tag) : _tags.remove(tag);
-                }),
-                selectedColor: AppColors.ctaGreen.withValues(alpha: 0.15),
-                checkmarkColor: AppColors.ctaGreen,
-                labelStyle: AppTextStyles.secondary.copyWith(
-                  color: selected ? AppColors.ctaGreen : AppColors.textPrimary,
-                  fontWeight: FontWeight.w600,
-                ),
-                side: BorderSide(color: selected ? AppColors.ctaGreen : AppColors.border),
-                backgroundColor: AppColors.surface,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 28),
-          ElevatedButton(
-            onPressed: _submitting ? null : _submit,
-            child: _submitting
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                  )
-                : const Text('Submit'),
-          ),
+          if (existingRating != null) ..._buildReadOnly(existingRating) else ..._buildForm(),
         ],
       ),
     );
+  }
+
+  /// A rider can only ever rate a ride once (backend-enforced, `ride_ratings`'s unique index on
+  /// `rideId`) - shows what was already submitted instead of a blank re-editable form (found in
+  /// live testing, 2026-10-12: re-opening a rated ride showed the form again with no sign the
+  /// ride had already been rated).
+  List<Widget> _buildReadOnly(RideRatingSummary existingRating) {
+    return [
+      Center(
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(5, (i) {
+            final filled = (i + 1) <= existingRating.rating;
+            return Icon(
+              filled ? Icons.star_rounded : Icons.star_border_rounded,
+              size: 36,
+              color: AppColors.ratingGold,
+            );
+          }),
+        ),
+      ),
+      Center(
+        child: Text(_ratingLabels[existingRating.rating] ?? '', style: AppTextStyles.title),
+      ),
+      if (existingRating.comment != null && existingRating.comment!.isNotEmpty) ...[
+        const SizedBox(height: 24),
+        Text('Your feedback', style: AppTextStyles.secondary),
+        const SizedBox(height: 8),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceTint,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(existingRating.comment!, style: AppTextStyles.body),
+        ),
+      ],
+    ];
+  }
+
+  List<Widget> _buildForm() {
+    return [
+      Center(
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(5, (i) {
+            final starIndex = i + 1;
+            final filled = starIndex <= _rating;
+            return IconButton(
+              // Respond on press, not release - instant visual feedback.
+              onPressed: () => setState(() => _rating = starIndex),
+              iconSize: 36,
+              icon: Icon(
+                filled ? Icons.star_rounded : Icons.star_border_rounded,
+                color: AppColors.ratingGold,
+              ),
+            );
+          }),
+        ),
+      ),
+      Center(
+        child: Text(_ratingLabels[_rating] ?? '', style: AppTextStyles.title),
+      ),
+      const SizedBox(height: 24),
+      Text("Tell us about your experience (optional)", style: AppTextStyles.secondary),
+      const SizedBox(height: 8),
+      TextField(
+        controller: _commentController,
+        maxLength: 200,
+        maxLines: 3,
+        onChanged: (_) => setState(() {}),
+      ),
+      const SizedBox(height: 8),
+      Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: _allTags.map((tag) {
+          final selected = _tags.contains(tag);
+          return FilterChip(
+            label: Text(tag),
+            selected: selected,
+            onSelected: (value) => setState(() {
+              value ? _tags.add(tag) : _tags.remove(tag);
+            }),
+            selectedColor: AppColors.ctaGreen.withValues(alpha: 0.15),
+            checkmarkColor: AppColors.ctaGreen,
+            labelStyle: AppTextStyles.secondary.copyWith(
+              color: selected ? AppColors.ctaGreen : AppColors.textPrimary,
+              fontWeight: FontWeight.w600,
+            ),
+            side: BorderSide(color: selected ? AppColors.ctaGreen : AppColors.border),
+            backgroundColor: AppColors.surface,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          );
+        }).toList(),
+      ),
+      const SizedBox(height: 28),
+      ElevatedButton(
+        onPressed: _submitting ? null : _submit,
+        child: _submitting
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+              )
+            : const Text('Submit'),
+      ),
+    ];
   }
 }

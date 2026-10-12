@@ -182,6 +182,12 @@ export class RidesService {
     }
   }
 
+  /** Null if the ride hasn't been rated yet - used to embed the rating on the ride response. */
+  async findRatingForRide(rideId: string): Promise<RideRating | null> {
+    const [row] = await this.db.select().from(rideRatings).where(eq(rideRatings.rideId, rideId));
+    return row ?? null;
+  }
+
   /**
    * Cancels a ride on behalf of the riding user or the currently-assigned driver (never an
    * arbitrary driver). Only permitted from a cancellable state (specification.md §5's

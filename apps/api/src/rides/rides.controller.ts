@@ -24,13 +24,14 @@ import { CreateRideDto } from './dto/create-ride.dto';
 import { CancelRideDto } from './dto/cancel-ride.dto';
 import { RateRideDto } from './dto/rate-ride.dto';
 import { RideRatingResponseDto } from './dto/ride-rating-response.dto';
-import { RideResponseDto, type RideDriverSummaryDto } from './dto/ride-response.dto';
+import { RideResponseDto, type RideDriverSummaryDto, type RideRatingSummaryDto } from './dto/ride-response.dto';
 import type { RideRating } from '../db/schema';
 
 export type RideResponse = Ride & {
   driver: RideDriverSummaryDto | null;
   vehicleCode: string | null;
   vehicleRegistrationNumber: string | null;
+  rating: RideRatingSummaryDto | null;
 };
 
 @ApiTags('rides')
@@ -131,14 +132,21 @@ export class RidesController {
   }
 
   /**
-   * Embeds a lightweight driver/vehicle summary on the response (docs/open-items.md) - the
-   * rider has no other authorized way to learn their assigned driver's name/vehicle, since
-   * `GET /drivers/:id` is ADMIN-only. Best-effort: a driver/vehicle row that's gone missing
-   * (shouldn't normally happen) degrades to `null` rather than failing the whole request.
+   * Embeds a lightweight driver/vehicle summary, and the rider's own rating if they've already
+   * left one (docs/plan.md §5/10.3 follow-up - lets a client show the existing rating read-only
+   * instead of re-prompting). The rider has no other authorized way to learn their assigned
+   * driver's name/vehicle, since `GET /drivers/:id` is ADMIN-only. Best-effort: a driver/vehicle
+   * row that's gone missing (shouldn't normally happen) degrades to `null` rather than failing
+   * the whole request.
    */
   private async enrich(ride: Ride): Promise<RideResponse> {
+    // Only a COMPLETED ride can ever have a rating (RidesService#rate enforces this), so skip
+    // the query otherwise - every non-terminal/non-completed ride would always be null anyway.
+    const ratingRow = ride.status === 'COMPLETED' ? await this.ridesService.findRatingForRide(ride.id) : null;
+    const rating = ratingRow ? { rating: ratingRow.rating, comment: ratingRow.comment } : null;
+
     if (!ride.driverId) {
-      return { ...ride, driver: null, vehicleCode: null, vehicleRegistrationNumber: null };
+      return { ...ride, driver: null, vehicleCode: null, vehicleRegistrationNumber: null, rating };
     }
 
     const [driver, vehicle] = await Promise.all([
@@ -154,6 +162,7 @@ export class RidesController {
         : null,
       vehicleCode: vehicle?.vehicleCode ?? null,
       vehicleRegistrationNumber: vehicle?.registrationNumber ?? null,
+      rating,
     };
   }
 }

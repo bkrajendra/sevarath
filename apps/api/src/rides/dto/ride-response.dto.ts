@@ -27,6 +27,17 @@ export class RideDriverSummaryDto {
   @ApiProperty() driverCode!: string;
 }
 
+/**
+ * Embedded on a ride's response once the rider has rated it (docs/plan.md §5/10.3) - lets a
+ * client show the existing rating read-only instead of re-prompting, and know not to call
+ * `POST /rides/:id/rating` again (it would 409 anyway, but the client shouldn't need to find
+ * that out by trying).
+ */
+export class RideRatingSummaryDto {
+  @ApiProperty() rating!: number;
+  @ApiProperty({ nullable: true, type: String }) comment!: string | null;
+}
+
 export class RideResponseDto {
   @ApiProperty() id!: string;
   @ApiProperty() userId!: string;
@@ -35,6 +46,7 @@ export class RideResponseDto {
   @ApiProperty({ nullable: true, type: RideDriverSummaryDto }) driver!: RideDriverSummaryDto | null;
   @ApiProperty({ nullable: true, type: String }) vehicleCode!: string | null;
   @ApiProperty({ nullable: true, type: String }) vehicleRegistrationNumber!: string | null;
+  @ApiProperty({ nullable: true, type: RideRatingSummaryDto }) rating!: RideRatingSummaryDto | null;
 
   @ApiProperty() pickupLatitude!: number;
   @ApiProperty() pickupLongitude!: number;
