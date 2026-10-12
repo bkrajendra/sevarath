@@ -114,6 +114,8 @@ docs/       specification.md, architecture.md, frontend-guidelines.md, plan.md
 k8s/        Kubernetes manifests for the sevarath namespace - see k8s/README.md
 ```
 
+The Flutter User/Driver app (`apps/mobile`) was split out on 2026-10-12 into its own repo - **[bkrajendra/sevarath-mobile](https://github.com/bkrajendra/sevarath-mobile)** - see [docs/repo-split-plan.md](docs/repo-split-plan.md) for why and how.
+
 ## 8. Running Locally
 
 Requires Node 22+ and `pnpm` (`corepack enable` picks up the pinned version from `package.json`).
@@ -149,7 +151,7 @@ Kubernetes manifests for the `sevarath` namespace (API, Postgres+PostGIS, Redis,
 | [docs/frontend-guidelines.md](docs/frontend-guidelines.md) | Admin app (React/Tailwind/shadcn/baseui) component and state-management conventions |
 | [docs/plan.md](docs/plan.md) | Phased delivery plan, deliverables per phase, open decisions |
 | [docs/open-items.md](docs/open-items.md) | Running log of workaround decisions and gaps found while implementing the plan |
-| [docs/repo-split-plan.md](docs/repo-split-plan.md) | Deferred plan to extract `apps/mobile` into its own repository |
+| [docs/repo-split-plan.md](docs/repo-split-plan.md) | How and why `apps/mobile` was split out into [sevarath-mobile](https://github.com/bkrajendra/sevarath-mobile) |
 | [k8s/README.md](k8s/README.md) | Kubernetes deploy order, secrets, image registry |
 
 ## 11. MVP Success Criteria
