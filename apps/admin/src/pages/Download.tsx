@@ -118,8 +118,7 @@ export function DownloadPage() {
             </span>
           </h1>
           <p className="mt-6 max-w-xl text-base leading-7 text-[#5c6c62] sm:text-lg sm:leading-8">
-            Get the SevaRath Android app. Choose the latest build or download an APK from any published release,
-            including prereleases.
+            Get the SevaRath Android app.
           </p>
 
           <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm text-[#53675a]">

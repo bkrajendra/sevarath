@@ -9,6 +9,12 @@
         "cd apps\\mobile && flutter run -d web-server -t lib/main_user.dart --web-port=8765"
       ],
       "port": 8765
+    },
+    {
+      "name": "admin",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "cd apps\\admin && pnpm dev --port=5174"],
+      "port": 5174
     }
   ]
 }
