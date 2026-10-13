@@ -25,7 +25,7 @@ interface GitHubRelease {
   assets: GitHubAsset[];
 }
 
-const RELEASES_URL = 'https://api.github.com/repos/bkrajendra/sevarath/releases?per_page=100';
+const RELEASES_URL = 'https://api.github.com/repos/bkrajendra/sevarath-mobile/releases?per_page=100';
 
 function formatFileSize(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
@@ -94,7 +94,7 @@ export function DownloadPage() {
           />
         </a>
         <a
-          href="https://github.com/bkrajendra/sevarath/releases"
+          href="https://github.com/bkrajendra/sevarath-mobile/releases"
           target="_blank"
           rel="noreferrer"
           className="inline-flex items-center gap-2 rounded-full border border-[#d9e2d9] bg-white/70 px-4 py-2 text-sm text-[#43564b] transition hover:border-[#087a43]/40 hover:text-[#075b36]"
@@ -282,7 +282,7 @@ export function DownloadPage() {
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 px-5 py-6 text-xs text-[#879189] sm:flex-row sm:items-center sm:justify-between sm:px-8">
           <span>© SevaRath</span>
           <a
-            href="https://github.com/bkrajendra/sevarath/releases"
+            href="https://github.com/bkrajendra/sevarath-mobile/releases"
             target="_blank"
             rel="noreferrer"
             className="inline-flex items-center gap-1.5 transition hover:text-[#075b36]"
