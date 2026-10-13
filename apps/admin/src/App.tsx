@@ -13,6 +13,7 @@ import { CampusLocationsPage } from '@/pages/CampusLocations';
 import { UsersPage } from '@/pages/Users';
 import { RidesPage } from '@/pages/Rides';
 import { DownloadPage } from '@/pages/Download';
+import { PrivacyPage } from '@/pages/Privacy';
 
 const queryClient = new QueryClient();
 
@@ -25,6 +26,7 @@ export default function App() {
             <Routes>
               <Route path="/login" element={<LoginPage />} />
               <Route path="/download" element={<DownloadPage />} />
+              <Route path="/privacy" element={<PrivacyPage />} />
               <Route element={<DashboardLayout />}>
                 <Route path="/" element={<DashboardPage />} />
                 <Route path="/drivers" element={<DriversPage />} />
