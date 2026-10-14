@@ -25,27 +25,31 @@ export function PrivacyPage() {
         </h2>
         <ul className="mt-4 list-disc space-y-3 pl-5">
           <li>
-            <strong className="text-[#10231a]">Account information:</strong> when you sign
-            in with Google, we receive your name, email address, and profile photo from
-            Google Sign-In/Firebase Authentication, to create and identify your SevaRath
-            account.
+            <strong className="text-[#10231a]">Account information:</strong> your name and
+            mobile number, which every account requires. Riders may also sign up with an
+            email address and password, or sign in with Google (name, email, and Firebase
+            Authentication's identifier for your account). Driver accounts are created by a
+            campus administrator and sign in with their mobile number/email and password —
+            drivers do not use Google Sign-In.
           </li>
           <li>
-            <strong className="text-[#10231a]">Location:</strong> while the app is open, we
-            use your device's precise and approximate location to find your pickup point,
-            match you with a nearby SevaRath EV, and (for drivers) share your live position
-            with the matched rider during a trip. Location is not collected when the app is
-            closed or in the background outside an active trip.
+            <strong className="text-[#10231a]">Location:</strong> while the app is in the
+            foreground, we use your device's precise and approximate location to find your
+            pickup point, match you with a nearby SevaRath EV, and (for drivers) share your
+            live position with the matched rider during a trip. Neither app requests
+            background location access — location is not collected while the app is closed
+            or backgrounded.
           </li>
           <li>
             <strong className="text-[#10231a]">Push notification token:</strong> Firebase
-            Cloud Messaging assigns your device a token, used only to deliver ride-status
-            notifications (e.g. "driver arriving", "ride accepted").
+            Cloud Messaging assigns your device a token, linked to your account, used only
+            to deliver ride-status notifications (e.g. "driver arriving", "ride accepted").
           </li>
           <li>
-            <strong className="text-[#10231a]">Ride history:</strong> pickup/destination,
-            timestamps, and status of rides you request or drive, kept so you and campus
-            administrators can see past rides.
+            <strong className="text-[#10231a]">Ride history and ratings:</strong>{' '}
+            pickup/destination, timestamps, and status of rides you request or drive; and,
+            for riders, the star rating and optional written feedback you leave for a
+            completed ride.
           </li>
         </ul>
 
@@ -54,10 +58,7 @@ export function PrivacyPage() {
         </h2>
         <ul className="mt-4 list-disc space-y-3 pl-5">
           <li>No advertising, no ad SDKs, no selling or renting any data to third parties.</li>
-          <li>
-            No analytics SDK beyond Firebase Authentication and Firebase Cloud Messaging,
-            used only to operate sign-in and notifications.
-          </li>
+          <li>No analytics or tracking SDK of any kind.</li>
           <li>
             No payment or financial information is ever collected — the app has no payment
             feature.
@@ -70,9 +71,15 @@ export function PrivacyPage() {
         <p className="mt-4">
           Your location and ride information are visible to the SevaRath driver or rider
           matched to your active ride, and to campus administrators operating the SevaRath
-          service. Account and location data is processed by Google Firebase on our behalf,
-          under Google's own data processing terms, and is not shared with any other third
-          party.
+          service. Your account, location, and ride data is stored and processed on
+          SevaRath's own servers — not by a third-party data processor. Two third-party
+          services support specific features: Google Firebase handles rider Google Sign-In
+          and push-notification delivery (it does not receive your location or ride data),
+          Resend delivers account emails (driver-credential and password-reset messages,
+          which include your email address), and the OpenFreeMap map service receives your
+          device's IP address and the map area you're viewing in order to display map tiles.
+          None of these receive your ride history, ratings, or payment information — the
+          app has none of the last to share.
         </p>
 
         <h2 className="mt-10 text-2xl font-semibold tracking-tight text-[#10231a]">
@@ -84,7 +91,7 @@ export function PrivacyPage() {
           <a href="mailto:bkrajendra@gmail.com" className="text-[#087a43] underline">
             bkrajendra@gmail.com
           </a>{' '}
-          from the email address you signed up with.
+          with the mobile number or email address on your account.
         </p>
 
         <h2 className="mt-10 text-2xl font-semibold tracking-tight text-[#10231a]">Contact</h2>
